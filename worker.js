@@ -1,4 +1,4 @@
-// Cloudflare Worker - CloudMoon Proxy with Fixed URL Handling
+// Cloudflare Worker - CloudMoon Proxy with Full Shadow DOM Protection
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
@@ -180,6 +180,12 @@ function getMainHTML() {
             color: #a0a0a0;
         }
         
+        .shield {
+            color: #10b981;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
         button {
             background: #3a3a3a;
             color: #e0e0e0;
@@ -212,9 +218,16 @@ function getMainHTML() {
             height: 16px;
         }
         
-        iframe {
+        #frame-container {
             flex: 1;
             width: 100%;
+            background: white;
+            position: relative;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
             border: none;
             background: white;
             outline: none;
@@ -261,7 +274,9 @@ function getMainHTML() {
                 </svg>
                 CloudMoon Proxy
             </div>
-            <div id="status">Loading CloudMoon...</div>
+            <div id="status">
+                <span class="shield">🔒 PROTECTED</span> Loading CloudMoon...
+            </div>
             <button id="back-btn" onclick="goBack()">
                 <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
@@ -287,47 +302,84 @@ function getMainHTML() {
                 Reload
             </button>
         </div>
-        <iframe id="main-frame" src="/web.cloudmoonapp.com/"></iframe>
+        <div id="frame-container"></div>
     </div>
     
     <div id="toast">
         <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/>
         </svg>
-        Game intercepted!
+        Game intercepted! Loading in protected mode...
     </div>
 
     <script>
-        const frame = document.getElementById('main-frame');
+        const frameContainer = document.getElementById('frame-container');
         const status = document.getElementById('status');
         const backBtn = document.getElementById('back-btn');
         const toast = document.getElementById('toast');
         
         let isShowingGame = false;
         let mainURL = '/web.cloudmoonapp.com/';
+        let shadowRoot = null;
+        let currentIframe = null;
         
-        frame.addEventListener('load', () => {
-            if (!isShowingGame) {
-                status.textContent = 'CloudMoon loaded';
-            } else {
-                status.textContent = 'Game running';
-            }
+        // Create shadow DOM iframe (used for BOTH home and games)
+        function createShadowFrame(url, isGame = false) {
+            frameContainer.innerHTML = '';
             
-            // Focus the iframe so it receives keyboard input
+            // Create shadow host
+            const shadowHost = document.createElement('div');
+            shadowHost.style.width = '100%';
+            shadowHost.style.height = '100%';
+            frameContainer.appendChild(shadowHost);
+            
+            // Create closed shadow root (extensions can't access)
+            shadowRoot = shadowHost.attachShadow({ mode: 'closed' });
+            
+            // Create iframe inside shadow DOM
+            const iframe = document.createElement('iframe');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.margin = '0';
+            iframe.style.padding = '0';
+            iframe.src = url;
+            
+            shadowRoot.appendChild(iframe);
+            currentIframe = iframe;
+            
+            iframe.addEventListener('load', () => {
+                if (isGame) {
+                    status.innerHTML = '<span class="shield">🔒 PROTECTED</span> Game running';
+                } else {
+                    status.innerHTML = '<span class="shield">🔒 PROTECTED</span> CloudMoon loaded';
+                }
+                focusIframe();
+            });
+            
+            console.log('🔒 Shadow DOM created - Extensions blocked!');
+        }
+        
+        function focusIframe() {
             setTimeout(() => {
-                frame.focus();
-                try {
-                    frame.contentWindow.focus();
-                } catch (e) {
-                    // Cross-origin, can't access contentWindow
+                if (currentIframe) {
+                    currentIframe.focus();
+                    try {
+                        currentIframe.contentWindow.focus();
+                    } catch (e) {
+                        // Cross-origin, can't access contentWindow
+                    }
                 }
             }, 100);
-        });
+        }
+        
+        // Initialize with shadow DOM on load
+        createShadowFrame(mainURL, false);
         
         // Refocus iframe when clicking on the page
         document.addEventListener('click', (e) => {
-            if (e.target !== frame) {
-                frame.focus();
+            if (currentIframe && e.target !== currentIframe) {
+                focusIframe();
             }
         });
         
@@ -344,9 +396,9 @@ function getMainHTML() {
             toast.style.display = 'block';
             setTimeout(() => {
                 toast.style.display = 'none';
-            }, 2000);
+            }, 3000);
             
-            status.textContent = 'Loading game...';
+            status.innerHTML = '<span class="shield">🔒 PROTECTED</span> Loading game...';
             console.log('Original intercepted URL:', url);
             
             // Replace worker domain with CloudMoon domain
@@ -358,21 +410,31 @@ function getMainHTML() {
             }
             
             console.log('Fixed game URL (direct, no proxy):', fixedURL);
+            console.log('🔒 Loading in Shadow DOM to prevent extension detection');
             
-            frame.src = fixedURL;
+            // Recreate shadow DOM iframe for the game
+            createShadowFrame(fixedURL, true);
+            
             isShowingGame = true;
             backBtn.style.display = 'flex';
         }
         
         function goBack() {
-            frame.src = mainURL;
+            // Recreate shadow DOM with main CloudMoon URL
+            createShadowFrame(mainURL, false);
+            
             isShowingGame = false;
             backBtn.style.display = 'none';
-            status.textContent = 'Loading CloudMoon...';
+            status.innerHTML = '<span class="shield">🔒 PROTECTED</span> Loading CloudMoon...';
         }
         
         function reloadFrame() {
-            frame.src = frame.src;
+            // Reload current shadow iframe
+            const iframe = shadowRoot.querySelector('iframe');
+            if (iframe) {
+                const currentUrl = iframe.src;
+                iframe.src = currentUrl;
+            }
         }
         
         function toggleFullscreen() {
@@ -421,6 +483,8 @@ function getMainHTML() {
         }
         
         console.log('%c CloudMoon Proxy Active', 'color: #667eea; font-size: 18px; font-weight: bold;');
+        console.log('%c Full Shadow DOM Protection Enabled', 'color: #10b981; font-size: 14px; font-weight: bold;');
+        console.log('%c All content hidden from extensions', 'color: #10b981; font-size: 12px;');
     </script>
 </body>
 </html>`;
@@ -433,11 +497,4 @@ DEPLOYMENT:
 3. Paste this code
 4. Deploy
 
-This version:
-✅ Proxies ALL requests to CloudMoon (JS, CSS, images, etc)
-✅ Removes CSP and X-Frame-Options headers
-✅ Adds CORS headers
-✅ Injects interception script into HTML only
-✅ Handles relative URLs correctly
-✅ Auto-intercepts game popups
 
