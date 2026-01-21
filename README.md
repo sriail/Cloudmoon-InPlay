@@ -19,4 +19,4 @@ After that, you can use the upper navbar to help you navigate, cloak the site wi
 
 
 > [!NOTE]
-> When cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked.
+> When Cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked.
