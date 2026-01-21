@@ -1,9 +1,9 @@
 # CloudMoon InPlay
 
-Cloudmoon InPlay is a simple site that proxys, hides, and loads cloudmoon in a browser using Cloudflare workers, alowing you to effortlessley play Roblox, Fortnight, Call of Duty Mobile, Delta Force, and More in Browser at school or work!
+Cloudmoon InPlay is a simple site that proxies, hides, and loads cloudmoon in a browser using Cloudflare workers, allowing you to effortlessly play Roblox, Fortnight, Call of Duty Mobile, Delta Force, and More in Browser at school or work!
 
 > [!NOTE]
-> If you fork or use this reposatory, Please considere sharing or giving us a Star!
+> If you fork or use this repository, Please consider sharing or giving us a Star!
 
 ## Deploy
 
@@ -12,10 +12,11 @@ Cloudmoon InPlay is a simple site that proxys, hides, and loads cloudmoon in a b
 ## Use
 
 > [!IMPORTANT]
-> Because off googles authentacation policys, the google sign in buuton will NOT WORk. You must hit sign in with email and password instead. you will aslo need to register you cloudmoon acount at home with google and set a password in settings.
+> Because of google's authentication policies, the google sign in button will NOT WORK. You must hit sign in with email and password instead. You will also need to register your cloudmoon account at home with google and set a password in settings.
 
-One signed in, you can click and play games in Cloudmoons libary!
-after that, you can use the upper navbar to help you navagete, cloak the site with About:Blank, and reload the site with the reload button.
+Once you sign in, you can click and play games in Cloudmoons library!
+After that, you can use the upper navbar to help you navigate, cloak the site with About:Blank, and reload the site with the reload button.
+
 
 > [!NOTE]
-> When cloudmoon trys to open a new Tab, it will open in the central frame to avoid being blocked.
+> When cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked.
