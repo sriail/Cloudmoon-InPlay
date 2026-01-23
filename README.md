@@ -30,7 +30,7 @@ To deploy your owen cloudmoon worker, click the deploy to cloudflare button, for
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Shadow DOM Full Page Iframe</title>
+    <title>Cloudmoon InPlay</title>
     <style>
       /* Ensure the container takes up the full viewport */
       html,
@@ -48,38 +48,96 @@ To deploy your owen cloudmoon worker, click the deploy to cloudflare button, for
     </style>
   </head>
   <body>
-    <!-- Custom element that will hold the Shadow DOM -->
+    <!-- Custom element that will hold the triple Shadow DOM -->
     <full-page-frame
-      src="Worker"  <!-- Replace with your owen proxy / Cloudflare Worker -->
+      src="Worker"  <!-- Replace with your own proxy / Cloudflare Worker -->
     ></full-page-frame>
-
     <script>
       class FullPageFrame extends HTMLElement {
         connectedCallback() {
-          // 1. Attach the Shadow DOM
-          const shadow = this.attachShadow({ mode: "open" });
-
-          // 2. Create the iframe element
+          // Layer 1: First Shadow DOM
+          const shadow1 = this.attachShadow({ mode: "closed" });
+          
+          // Create first layer container
+          const layer1Container = document.createElement("div");
+          layer1Container.setAttribute("id", "layer1");
+          
+          const style1 = document.createElement("style");
+          style1.textContent = `
+            #layer1 {
+              width: 100%;
+              height: 100%;
+              display: block;
+            }
+          `;
+          
+          shadow1.appendChild(style1);
+          shadow1.appendChild(layer1Container);
+          
+          // Layer 2: Second Shadow DOM (nested)
+          const shadow2 = layer1Container.attachShadow({ mode: "closed" });
+          
+          const layer2Container = document.createElement("div");
+          layer2Container.setAttribute("id", "layer2");
+          
+          const style2 = document.createElement("style");
+          style2.textContent = `
+            #layer2 {
+              width: 100%;
+              height: 100%;
+              display: block;
+            }
+          `;
+          
+          shadow2.appendChild(style2);
+          shadow2.appendChild(layer2Container);
+          
+          // Layer 3: Third Shadow DOM (nested)
+          const shadow3 = layer2Container.attachShadow({ mode: "closed" });
+          
+          const layer3Container = document.createElement("div");
+          layer3Container.setAttribute("id", "layer3");
+          
+          const style3 = document.createElement("style");
+          style3.textContent = `
+            #layer3 {
+              width: 100%;
+              height: 100%;
+              display: block;
+            }
+            iframe {
+              width: 100%;
+              height: 100%;
+              border: none;
+              display: block;
+            }
+          `;
+          
+          shadow3.appendChild(style3);
+          shadow3.appendChild(layer3Container);
+          
+          // Final iframe in the innermost layer
           const iframe = document.createElement("iframe");
           iframe.src = this.getAttribute("src");
-
-          // 3. Apply internal styles to the Shadow DOM
-          const style = document.createElement("style");
-          style.textContent = `
-                    iframe {
-                        width: 100%;
-                        height: 100%;
-                        border: none;
-                        display: block;
-                    }
-                `;
-
-          // 4. Append to the shadow root
-          shadow.appendChild(style);
-          shadow.appendChild(iframe);
+          
+          // Additional security attributes
+          iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox");
+          iframe.setAttribute("referrerpolicy", "no-referrer");
+          
+          layer3Container.appendChild(iframe);
+          
+          // Optional: Add random attributes to obfuscate structure
+          this.setAttribute("data-component", this.generateRandomId());
+          layer1Container.setAttribute("data-layer", this.generateRandomId());
+          layer2Container.setAttribute("data-layer", this.generateRandomId());
+          layer3Container.setAttribute("data-layer", this.generateRandomId());
+        }
+        
+        generateRandomId() {
+          return Math.random().toString(36).substring(2, 15);
         }
       }
-
+      
       // Register the custom element
       customElements.define("full-page-frame", FullPageFrame);
     </script>
