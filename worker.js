@@ -1,4 +1,4 @@
-// Cloudflare Worker - CloudMoon Proxy with Tab Cloaking
+// Cloudflare Worker - CloudMoon Proxy with Multi-Layer Shadow DOM Protection
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
@@ -9,7 +9,38 @@ async function handleRequest(request) {
   // Serve the main HTML page
   if (url.pathname === '/' || url.pathname === '') {
     return new Response(getMainHTML(), {
-      headers: { 'Content-Type': 'text/html' }
+      headers: {
+        'Content-Type': 'text/html',
+        'Permissions-Policy': 'accelerometer=*, gyroscope=*, camera=*, microphone=*, geolocation=*, hid=*, midi=*, clipboard-read=*, clipboard-write=*, xr-spatial-tracking=*, gamepad=*'
+      }
+    });
+  }
+  
+  // Serve manifest.json for PWA
+  if (url.pathname === '/manifest.json') {
+    return new Response(getManifest(), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  
+  // Serve service worker for PWA
+  if (url.pathname === '/sw.js') {
+    return new Response(getServiceWorker(), {
+      headers: { 
+        'Content-Type': 'application/javascript',
+        'Service-Worker-Allowed': '/'
+      }
+    });
+  }
+
+  // Serve favicon.png from root — proxy Google Classroom's real icon
+  if (url.pathname === '/favicon.png') {
+    const iconRes = await fetch('https://ssl.gstatic.com/classroom/favicon.png');
+    const iconHeaders = new Headers(iconRes.headers);
+    iconHeaders.set('Cache-Control', 'public, max-age=86400');
+    return new Response(iconRes.body, {
+      status: iconRes.status,
+      headers: iconHeaders
     });
   }
   
@@ -176,8 +207,19 @@ function getMainHTML() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudMoon InPlay</title>
-    <link rel="icon" id="favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>">
+    <title>Home - Classroom</title>
+    <meta name="description" content="Play Roblox, Fortnite, Call of Duty Mobile, Delta Force, and more in your browser">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2d2d2d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CloudMoon">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/favicon.png">
+    
+    <link rel="icon" id="favicon" type="image/png" href="/favicon.png">
     <style>
         * {
             margin: 0;
@@ -199,70 +241,10 @@ function getMainHTML() {
             flex-direction: column;
         }
         
-        #header {
-            background: #2d2d2d;
-            padding: 12px 25px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            border-bottom: 1px solid #404040;
-        }
-        
-        #title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #e0e0e0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        #status {
-            flex: 1;
-            font-size: 14px;
-            color: #a0a0a0;
-        }
-        
-        button {
-            background: #3a3a3a;
-            color: #e0e0e0;
-            border: none;
-            padding: 7px 14px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        button:hover {
-            background: #4a4a4a;
-        }
-        
-        button:active {
-            transform: scale(0.98);
-        }
-        
-        #back-btn {
-            display: none;
-        }
-        
-        #tab-cloak-btn.active {
-            background: #238636;
-        }
-        
-        .icon {
-            width: 16px;
-            height: 16px;
-        }
-        
         #frame-container {
             flex: 1;
             width: 100%;
+            height: 100%;
             background: white;
             position: relative;
         }
@@ -278,182 +260,172 @@ function getMainHTML() {
         iframe:focus {
             outline: none;
         }
-        
-        #toast {
+
+        /* Floating button dock — bottom left */
+        #btn-dock {
             position: fixed;
-            top: 70px;
-            right: 30px;
-            background: #238636;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 6px;
-            display: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: slideIn 0.3s;
-            z-index: 999;
-            font-weight: 500;
-            font-size: 14px;
+            bottom: 18px;
+            left: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 9999;
+            transition: opacity 0.3s;
         }
-        
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+
+        #btn-dock.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .dock-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(45, 45, 45, 0.85);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            color: #e0e0e0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+            transition: background 0.2s, transform 0.15s;
+        }
+
+        .dock-btn:hover {
+            background: rgba(74, 74, 74, 0.95);
+        }
+
+        .dock-btn:active {
+            transform: scale(0.93);
+        }
+
+        #home-btn {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div id="container">
-        <div id="header">
-            <div id="title">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/>
-                </svg>
-                CloudMoon InPlay
-            </div>
-            <div id="status">Loading...</div>
-            <button id="tab-cloak-btn" onclick="toggleTabCloak()">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                </svg>
-                Tab Cloak
-            </button>
-            <button id="back-btn" onclick="goBack()">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                </svg>
-                Back
-            </button>
-            <button onclick="openAboutBlank()">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                </svg>
-                about:blank
-            </button>
-            <button onclick="toggleFullscreen()">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
-                </svg>
-                Fullscreen
-            </button>
-            <button onclick="reloadFrame()">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                Reload
-            </button>
-        </div>
         <div id="frame-container"></div>
     </div>
-    
-    <div id="toast">
-        Loading your Game / App...
+
+    <!-- Floating bottom-left controls -->
+    <div id="btn-dock">
+        <button class="dock-btn" id="home-btn" onclick="goBack()" title="Home">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/>
+            </svg>
+        </button>
+        <button class="dock-btn" id="fullscreen-btn" onclick="enterFullscreen()" title="Fullscreen">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+            </svg>
+        </button>
     </div>
 
     <script>
         const frameContainer = document.getElementById('frame-container');
-        const status = document.getElementById('status');
-        const backBtn = document.getElementById('back-btn');
-        const toast = document.getElementById('toast');
-        const tabCloakBtn = document.getElementById('tab-cloak-btn');
+        const homeBtn = document.getElementById('home-btn');
+        const btnDock = document.getElementById('btn-dock');
         
         let isShowingGame = false;
         let mainURL = '/web.cloudmoonapp.com/';
-        let shadowRoot = null;
+        let shadowRoots = [];
         let currentIframe = null;
-        let isCloaked = false;
-        
-        // Original title and favicon
-        const originalTitle = 'CloudMoon InPlay';
-        const originalFavicon = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>";
-        
-        // Google Classroom cloak
-        const cloakedTitle = 'Classes';
-        const cloakedFavicon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAA7EAAAOxAGVKw4bAAADW0lEQVRYhb2XT0hUURTGf+fNm+bVNP4ZxRhKAxeVBLYoaBOEEkTQpk0EbVpEELRo1aKgRYQtItrUKqJ/i6BVRBCUQYsWYf9QMwoz0cxCZ3TmzX1vbgtnHI3RmXl64MPLvY9zv3vOueee71F+RMvuQ/d2CIwClh48WN/98U0+TwVA6e17dwM3gb1Axt8FjgEnwnqmNo9n/xdA6Z1HTUAncAzY5gMAnAL6gMOSqRsA7PkuTu+9d3eBl8BeYOs6q54CuoCj3hON5yXbsI6HL4BbwGHW//gAXcBR741G5QdwyJDyYpAgmNz0VztTqD87Zt7+vBiMbKC0vPZc4XmJf8d0z0pP/tPYr4s3PgwvADcAbxOxXoCqc9c3FZ9dHAcmCtWuO97w8q3+H6N/D3WlXqSmawl6OoFzQAl/SVXHh9oj/UOnL4HSpF6JPBGAW8Bp4B5wsEi+sxnoTRpgKzBayHj92r0twFRBv+cBFHi4kZPtCthRACtJAQSwOQGAwvV8IMkABjBlLQFYOgmAEdsaQBpbBEsCUDlgpwFMJ+RYAL6XAnCiWMFCfhqoAFbfibDzAIMvB4ZfFwigb8EGLnjPNw54zzU2A0PeC00HclXCRd+QUur3Pdu/tqkXwLNc7TQ1bU8AXT//qbDgfk9K5fKqp+E7sL+qqvofVYAL7nWnMTqC68D9X1Wkp+EHcGD1fSXi+/U0HAQe+SXIC59cZAA+/noBYlTPtdYnADDvvdCcD4C+S/feAH1/2P8ZePSrHf4OQHe+AJxwO9sTcFt+L5ALINfXuqTUMeBbvu6bC2AOOJHv8/vWE61jgj0J/AWvJz4Am8D5YgAorxjXfkD6/2M6rwnvhaZ2XdmGd+4HgZ68pJ/sePluEBjxnm9auw82HUCpu/eUUk/x++K/dsSGx/3fDrjgTM8SrWZA+f05rydaFwAclVx9T96K6PW0PZBE9fy67uN8vhHlx5t8Zyh83vwL5V+RTBF9wWy4AAC+t1rPAyfxu9S/WgC4o5R6opXeBNz0u9l15Xvjhc/yBYgAAMGU7/dRG1Dpr/8B+BLoO9yzYzp4f7MnXxPOC0Cp1s5ub5bQHlyAemCHP14KfAD6J/SJ5uDtpc+FeP8E0sLYXdZbKF8AAAAASUVORK5CYII=';
         
         const SANDBOX_HOME = 'allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-downloads allow-pointer-lock allow-top-navigation-by-user-activation';
         const SANDBOX_GAME = 'allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-downloads allow-pointer-lock allow-top-navigation-by-user-activation';
         const ALLOW_PERMISSIONS = 'accelerometer; camera; encrypted-media; geolocation; gyroscope; hid; microphone; midi; clipboard-read; clipboard-write; xr-spatial-tracking; gamepad';
         
-        function toggleTabCloak() {
-            isCloaked = !isCloaked;
+        const SHADOW_LAYERS = 4;
+        
+        function createMultiLayerShadowFrame(url, isGame = false) {
+            frameContainer.innerHTML = '';
+            shadowRoots = [];
             
-            if (isCloaked) {
-                // Enable cloak - Google Classroom
-                document.title = cloakedTitle;
-                document.getElementById('favicon').href = cloakedFavicon;
-                tabCloakBtn.classList.add('active');
-                showToast('Tab cloaked as Google Classroom');
-            } else {
-                // Disable cloak - restore original
-                document.title = originalTitle;
-                document.getElementById('favicon').href = originalFavicon;
-                tabCloakBtn.classList.remove('active');
-                showToast('Tab cloak disabled');
+            let currentHost = document.createElement('div');
+            currentHost.style.width = '100%';
+            currentHost.style.height = '100%';
+            currentHost.style.margin = '0';
+            currentHost.style.padding = '0';
+            currentHost.style.border = 'none';
+            currentHost.style.display = 'block';
+            currentHost.style.overflow = 'hidden';
+            currentHost.setAttribute('data-id', generateRandomId());
+            currentHost.setAttribute('data-component', 'container');
+            
+            frameContainer.appendChild(currentHost);
+            
+            for (let i = 0; i < SHADOW_LAYERS; i++) {
+                const shadowRoot = currentHost.attachShadow({ mode: 'closed' });
+                shadowRoots.push(shadowRoot);
+                
+                if (i < SHADOW_LAYERS - 1) {
+                    const nextHost = document.createElement('div');
+                    nextHost.style.width = '100%';
+                    nextHost.style.height = '100%';
+                    nextHost.style.margin = '0';
+                    nextHost.style.padding = '0';
+                    nextHost.style.border = 'none';
+                    nextHost.style.display = 'block';
+                    nextHost.style.overflow = 'hidden';
+                    nextHost.setAttribute('data-layer', i.toString());
+                    nextHost.setAttribute('data-id', generateRandomId());
+                    
+                    shadowRoot.appendChild(nextHost);
+                    currentHost = nextHost;
+                    
+                    console.log(\`%c Shadow Layer \${i + 1} created\`, 'color: #667eea; font-weight: bold;');
+                } else {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = 'none';
+                    iframe.style.margin = '0';
+                    iframe.style.padding = '0';
+                    iframe.style.display = 'block';
+                    iframe.style.overflow = 'hidden';
+                    
+                    const sandboxAttr = isGame ? SANDBOX_GAME : SANDBOX_HOME;
+                    iframe.setAttribute('sandbox', sandboxAttr);
+                    iframe.setAttribute('allow', ALLOW_PERMISSIONS);
+                    iframe.setAttribute('title', isGame ? 'Game Preview' : 'CloudMoon Preview');
+                    iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+                    iframe.setAttribute('importance', 'high');
+                    iframe.setAttribute('loading', 'eager');
+                    iframe.setAttribute('data-frame-id', generateRandomId());
+                    iframe.setAttribute('data-secure', 'true');
+                    
+                    iframe.src = url;
+                    
+                    shadowRoot.appendChild(iframe);
+                    currentIframe = iframe;
+                    
+                    iframe.addEventListener('load', () => {
+                        focusIframe();
+                    });
+                    
+                    iframe.addEventListener('error', (e) => {
+                        console.error('Iframe error:', e);
+                    });
+                    
+                    console.log(\`%c Final Shadow Layer \${SHADOW_LAYERS} with iframe created\`, 'color: #10b981; font-weight: bold;');
+                }
             }
+            
+            console.log(\`%c \${SHADOW_LAYERS}-Layer Shadow DOM Protection Active\`, 'color: #667eea; font-size: 14px; font-weight: bold;');
         }
         
-        function showToast(message) {
-            toast.textContent = message;
-            toast.style.display = 'block';
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 2000);
+        function generateRandomId() {
+            return 'x' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
         }
         
         function createShadowFrame(url, isGame = false) {
-            frameContainer.innerHTML = '';
-            
-            const shadowHost = document.createElement('div');
-            shadowHost.style.width = '100%';
-            shadowHost.style.height = '100%';
-            frameContainer.appendChild(shadowHost);
-            
-            shadowRoot = shadowHost.attachShadow({ mode: 'closed' });
-            
-            const iframe = document.createElement('iframe');
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.margin = '0';
-            iframe.style.padding = '0';
-            iframe.style.display = 'block';
-            
-            const sandboxAttr = isGame ? SANDBOX_GAME : SANDBOX_HOME;
-            iframe.setAttribute('sandbox', sandboxAttr);
-            iframe.setAttribute('allow', ALLOW_PERMISSIONS);
-            iframe.setAttribute('title', isGame ? 'Game Preview' : 'CloudMoon Preview');
-            iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-            
-            iframe.src = url;
-            
-            shadowRoot.appendChild(iframe);
-            currentIframe = iframe;
-            
-            iframe.addEventListener('load', () => {
-                if (isGame) {
-                    status.textContent = 'Game / App running';
-                    console.log('%c Game loaded with full permissions', 'color: #10b981; font-weight: bold;');
-                } else {
-                    status.textContent = 'CloudMoon loaded';
-                }
-                focusIframe();
-            });
-            
-            iframe.addEventListener('error', (e) => {
-                console.error('Iframe error:', e);
-                status.textContent = 'Error loading - check console, reload, or try again Later';
-            });
-            
-            console.log('%c Shadow DOM Created', 'color: #10b981; font-weight: bold;');
-            console.log('Sandbox:', sandboxAttr);
-            console.log('Allow:', ALLOW_PERMISSIONS);
+            createMultiLayerShadowFrame(url, isGame);
         }
         
         function focusIframe() {
@@ -469,7 +441,8 @@ function getMainHTML() {
             }, 100);
         }
         
-        createShadowFrame(mainURL, false);
+        // Initialize with multi-layer shadow DOM
+        createMultiLayerShadowFrame(mainURL, false);
         
         document.addEventListener('click', (e) => {
             if (currentIframe && e.target !== currentIframe) {
@@ -486,11 +459,6 @@ function getMainHTML() {
         });
         
         function loadGame(url) {
-            showToast('Loading your Game / App...');
-            
-            status.textContent = 'Loading your Game / App...';
-            console.log('Original URL:', url);
-            
             let fixedURL = url;
             const workerDomain = window.location.origin;
             
@@ -498,84 +466,199 @@ function getMainHTML() {
                 fixedURL = url.replace(workerDomain, 'https://web.cloudmoonapp.com');
             }
             
-            console.log('%c Loading game with FULL sandbox permissions', 'color: #667eea; font-weight: bold;');
-            console.log('Game URL:', fixedURL);
+            console.log(\`%c Loading game with \${SHADOW_LAYERS}-layer Shadow DOM protection\`, 'color: #667eea; font-weight: bold;');
             
-            createShadowFrame(fixedURL, true);
+            createMultiLayerShadowFrame(fixedURL, true);
             
             isShowingGame = true;
-            backBtn.style.display = 'flex';
+            homeBtn.style.display = 'flex';
         }
         
         function goBack() {
-            createShadowFrame(mainURL, false);
+            createMultiLayerShadowFrame(mainURL, false);
             isShowingGame = false;
-            backBtn.style.display = 'none';
-            status.textContent = 'Loading CloudMoon...';
-        }
-        
-        function reloadFrame() {
-            const iframe = shadowRoot.querySelector('iframe');
-            if (iframe) {
-                const currentUrl = iframe.src;
-                iframe.src = 'about:blank';
-                setTimeout(() => {
-                    iframe.src = currentUrl;
-                }, 50);
-            }
-        }
-        
-        function toggleFullscreen() {
-            const header = document.getElementById('header');
-            
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-                header.style.display = 'none';
-            } else {
+            homeBtn.style.display = 'none';
+
+            // Exit fullscreen if active
+            if (document.fullscreenElement) {
                 document.exitFullscreen();
-                header.style.display = 'flex';
             }
         }
-        
+
+        function enterFullscreen() {
+            document.documentElement.requestFullscreen();
+            // Hide the dock while fullscreen
+            btnDock.classList.add('hidden');
+        }
+
         document.addEventListener('fullscreenchange', () => {
-            const header = document.getElementById('header');
             if (!document.fullscreenElement) {
-                header.style.display = 'flex';
+                // Restore dock when exiting fullscreen
+                btnDock.classList.remove('hidden');
             }
         });
         
-        function openAboutBlank() {
-            const aboutBlankWindow = window.open('about:blank', '_blank');
-            const shadowHost = aboutBlankWindow.document.createElement('div');
-            aboutBlankWindow.document.body.appendChild(shadowHost);
-            
-            const shadow = shadowHost.attachShadow({ mode: 'closed' });
-            
-            const iframe = aboutBlankWindow.document.createElement('iframe');
-            iframe.style.position = 'fixed';
-            iframe.style.top = '0';
-            iframe.style.left = '0';
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.margin = '0';
-            iframe.style.padding = '0';
-            
-            iframe.setAttribute('sandbox', SANDBOX_GAME);
-            iframe.setAttribute('allow', ALLOW_PERMISSIONS);
-            iframe.src = window.location.href;
-            
-            shadow.appendChild(iframe);
-            
-            aboutBlankWindow.document.body.style.margin = '0';
-            aboutBlankWindow.document.body.style.padding = '0';
-            aboutBlankWindow.document.body.style.overflow = 'hidden';
+        console.log('%c CloudMoon Proxy Active', 'color: #667eea; font-size: 18px; font-weight: bold;');
+        console.log(\`%c Multi-Layer Shadow DOM Protection: \${SHADOW_LAYERS} Layers\`, 'color: #10b981; font-size: 14px; font-weight: bold;');
+        
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('%c PWA Service Worker registered', 'color: #667eea; font-weight: bold;');
+                        
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('%c New version available!', 'color: #10b981; font-weight: bold;');
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
         }
         
-        console.log('%c CloudMoon Proxy Active', 'color: #667eea; font-size: 18px; font-weight: bold;');
-        console.log('%c GoGuardian Bypass: CodeSandbox Method', 'color: #10b981; font-size: 14px; font-weight: bold;');
-        console.log('%c Shadow DOM + Smart Sandbox + Full Permissions', 'color: #10b981; font-size: 12px;');
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+        });
     </script>
 </body>
 </html>`;
+}
+
+function getManifest() {
+  return JSON.stringify({
+    "name": "Google Classroom",
+    "short_name": "Google Classroom",
+    "description": "Google Classroom is a free, secure, and easy-to-use blended learning platform within Google Workspace for Education that allows educators to create, distribute, and grade assignments in one place.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0d1117",
+    "theme_color": "#2d2d2d",
+    "orientation": "any",
+    "scope": "/",
+    "icons": [
+      {
+        "src": "/favicon.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
+    ],
+    "categories": ["education", "learning"],
+    "screenshots": [],
+    "shortcuts": [
+      {
+        "name": "Open Classroom",
+        "short_name": "Open Classroom",
+        "description": "Open Google Classroom",
+        "url": "/",
+        "icons": [
+          {
+            "src": "/favicon.png",
+            "sizes": "96x96",
+            "type": "image/png"
+          }
+        ]
+      }
+    ]
+  });
+}
+
+function getServiceWorker() {
+  return `// CloudMoon InPlay Service Worker
+const CACHE_NAME = 'cloudmoon-v1';
+const RUNTIME_CACHE = 'cloudmoon-runtime';
+
+// Install event - cache essential resources
+self.addEventListener('install', (event) => {
+  console.log('[ServiceWorker] Install');
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[ServiceWorker] Caching app shell');
+      return cache.addAll([
+        '/',
+        '/manifest.json',
+        '/sw.js',
+        '/favicon.png'
+      ]);
+    }).then(() => {
+      return self.skipWaiting();
+    })
+  );
+});
+
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  console.log('[ServiceWorker] Activate');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE) {
+            console.log('[ServiceWorker] Removing old cache', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => {
+      return self.clients.claim();
+    })
+  );
+});
+
+// Fetch event - network first, fallback to cache
+self.addEventListener('fetch', (event) => {
+  // Skip cross-origin requests - let browser handle them
+  if (!event.request.url.startsWith(self.location.origin)) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // If response is valid, clone it and cache it
+        if (response && response.status === 200) {
+          const responseToCache = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => {
+            cache.put(event.request, responseToCache);
+          }).catch((error) => {
+            console.error('[ServiceWorker] Cache put error:', error);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        // If network fails, try to serve from cache
+        return caches.match(event.request).then((response) => {
+          if (response) {
+            return response;
+          }
+          // If not in cache, return a basic offline page
+          if (event.request.mode === 'navigate') {
+            return caches.match('/');
+          }
+        });
+      })
+  );
+});
+
+// Handle messages from clients
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});`;
 }
