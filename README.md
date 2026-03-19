@@ -12,19 +12,20 @@ Cloudmoon InPlay is a simple site that proxies, hides, and loads cloudmoon in a 
 ## Use
 
 > [!IMPORTANT]
-> Because of google's authentication policies, the google sign in button will NOT WORK. You must hit sign in with email and password instead. You will also need to register your cloudmoon account at home with google and set a password in settings.
+> Because of google's authentication policies, the google sign in button will NOT WORK. You must hit sign in with email and password instead. You will also need to register your cloudmoon account at home with google and set a password in settings befor using elsewhere (Google Sign In button is now visably hidden).
 
-Once you sign in, you can click and play games in Cloudmoons library!
-After that, you can use the upper navbar to help you navigate, cloak the site with About:Blank, and reload the site with the reload button.
+Once you sign in, you can click and play games or apps in Cloudmoons library!
+After that, you can use the Controll bar for navigation, and go home using the home button, as well as fullscreening in game removing ads!
 
 
 > [!NOTE]
-> When Cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked.
+> When Cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked, keeping everything self contained.
 
 ## Deploy
 
-To deploy your owen cloudmoon worker, click the deploy to cloudflare button, for maxamum security, it is recomended that it is embeded into another site using this code (blocks extentions with restrictive content policies). Be shure to chage 
-``` src="Worker" ``` With your Worker (example URl : milefalencentfog47a.johndoe.workers.dev )
+To deploy your owen Cloudmoon In-Play Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers prevew! However, for maxamum security, it is recomended that it is embeded into another site using this code (blocks extentions with restrictive content policies by adding extra DOM Layers, which is not required, but works in the base link is blocked!) Be shure to chage 
+``` src="Worker" ``` With your Worker (example URl : https://milefalencentfog47a.johndoe.workers.dev )
+                                                              ^Random or set name  ^Email /Name ^.workers.dev url Extention
 
 ```html
 <!DOCTYPE html>
