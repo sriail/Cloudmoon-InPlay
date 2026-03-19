@@ -1,5 +1,4 @@
-<center>CloudMoon InPlay</center>
-
+<p style="text-align: center;">#Cloudmoon InPlay.</p>
 
 ![github_thum.png](github_thum.png)
 
@@ -29,7 +28,7 @@ After that, you can use the Controll bar for navigation, and go home using the h
 
 ## Deploy
 
-To deploy your owen Cloudmoon In-Play Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers prevew! However, for maxamum security, it is recomended that it is embeded into another site using this code (blocks extentions with restrictive content policies by adding extra DOM Layers, which is not required, but works in the base link is blocked!) Be shure to chage 
+To deploy your owen Cloudmoon InPlay Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers prevew! However, for maxamum security, it is recomended that it is embeded into another site using this code (blocks extentions with restrictive content policies by adding extra DOM Layers, which is not required, but works in the base link is blocked!) Be shure to chage 
 ``` src="Worker" ``` With your Worker (example URl Patter, Not real deployment : https://milefalencentfog47a.johndoe.workers.dev , with the layout https:// (random or set worker name). (email) .workers.dev )
 
 ```html
