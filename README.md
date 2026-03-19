@@ -1,4 +1,4 @@
-![github_thum.png](github_thumb.png)
+![github_thum.png](github_thum.png)
 
 
 # CloudMoon InPlay
