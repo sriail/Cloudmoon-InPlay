@@ -25,6 +25,7 @@ After that, you can use the Controll bar for navigation, and go home using the h
 
 To deploy your owen Cloudmoon In-Play Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers prevew! However, for maxamum security, it is recomended that it is embeded into another site using this code (blocks extentions with restrictive content policies by adding extra DOM Layers, which is not required, but works in the base link is blocked!) Be shure to chage 
 ``` src="Worker" ``` With your Worker (example URl : https://milefalencentfog47a.johndoe.workers.dev )
+
                                                               ^Random or set name  ^Email /Name ^.workers.dev url Extention
 
 ```html
