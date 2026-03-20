@@ -15,11 +15,10 @@ To deploy your own Cloudmoon InPlay Cloudflare worker, click the deploy to Cloud
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sriail/Cloudmoon-InPlay)
 
-Second DOM Embed layer (Recommended if under heavy restrictions, to use on a different HTML site with your original worker URL)
-
 > [!TIP]
 > Be Shure to share it with your Friends / Co-workers. If you're worried about the url being blocked, Deploy a new worker or create a mirror using the code below on a html site host like Codesandbox of Github pages! Also has a bypass to chrome extension and AI autoblock software (blocks extensions at the root).
 
+Second DOM Embed layer (Recommended if under heavy restrictions, to use on a different HTML site with your original worker URL)
 ```html
 <!DOCTYPE html>
 <html lang="en">
