@@ -1,41 +1,28 @@
-
 ![github_thum.png](github_thum.png)
 
 
 # CloudMoon InPlay
 
-Cloudmoon InPlay is a simple site that proxies, hides, and loads cloudmoon in a browser using Cloudflare workers, allowing you to effortlessly play Roblox, Fortnight, Call of Duty Mobile, Delta Force, and More in Browser at school or work!
+Cloudmoon InPlay is a simple JS site that proxies, hides, and loads Cloudmoon in a browser using Cloudflare workers, allowing you to effortlessly play Roblox, Fortnight, Call of Duty Mobile, Delta Force, and More in Browser at School or Work!
 
 > [!NOTE]
 > If you fork or use this repository, Please consider sharing or giving us a Star!
 
 ## Deploy
 
+To deploy your own Cloudmoon InPlay Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers preview! However, for maximum security, it is recommended that it is embedded into another site using this code (blocks extensions with restrictive content policies by adding extra DOM Layers, which is not required, but works if the base link is blocked!) Be sure to change 
+``` src="Worker" ``` With your Worker (example URl Pattern, Not real deployment : https://milefalencentfog47a.johndoe.workers.dev)
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sriail/Cloudmoon-InPlay)
 
-## Use
-
-> [!IMPORTANT]
-> Because of google's authentication policies, the google sign in button will NOT WORK. You must hit sign in with email and password instead. You will also need to register your cloudmoon account at home with google and set a password in settings befor using elsewhere (Google Sign In button is now visably hidden).
-
-Once you sign in, you can click and play games or apps in Cloudmoons library!
-After that, you can use the Controll bar for navigation, and go home using the home button, as well as fullscreening in game removing ads!
-
-
-> [!NOTE]
-> When Cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked, keeping everything self contained.
-
-## Deploy
-
-To deploy your owen Cloudmoon InPlay Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers prevew! However, for maxamum security, it is recomended that it is embeded into another site using this code (blocks extentions with restrictive content policies by adding extra DOM Layers, which is not required, but works in the base link is blocked!) Be shure to chage 
-``` src="Worker" ``` With your Worker (example URl Patter, Not real deployment : https://milefalencentfog47a.johndoe.workers.dev , with the layout https:// (random or set worker name). (email) .workers.dev )
+Second DOM Embed layer (Recommended if under heavy restrictions, to use on a different HTML site with your original worker URL)
 
 ```html
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Cloudmoon InPlay</title>
+    <title>Home - Classroom</title>
     <style>
       /* Ensure the container takes up the full viewport */
       html,
@@ -150,3 +137,14 @@ To deploy your owen Cloudmoon InPlay Cloudflare worker, click the deploy to Clou
 </html>
 ```
 
+## Use
+
+> [!IMPORTANT]
+> Because of google's authentication policies, the google sign in button will NOT WORK. You must hit sign in with email and password instead. You will also need to register your cloudmoon account at home with google and set a password in settings before using elsewhere (Google Sign In button is now visibly hidden to avoid confusion).
+
+Once you sign in, you can click and play games or apps in Cloudmoons library!
+After that, you can use the Control bar for navigation, and go home using the home button, as well as fullscreening in-game removing ads!
+
+
+> [!NOTE]
+> When Cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked, keeping everything self contained.
