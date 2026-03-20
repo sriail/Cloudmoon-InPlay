@@ -1,4 +1,3 @@
-<p style="text-align: center;">#Cloudmoon InPlay.</p>
 
 ![github_thum.png](github_thum.png)
 
