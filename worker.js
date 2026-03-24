@@ -176,6 +176,22 @@ async function proxyCloudMoon(request) {
     html = blockAdsInHTML(html);
     
     const injectionCode = `
+<style id="cm-ad-blocker-css">
+  /* Hide ONLY the specific ad container divs */
+  .a-div-horizontal,
+  .a-div-vertical,
+  .a-div-placeholder,
+  .a-div-box {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+</style>
 <script id="cm-fix-js">
 (function(){
   // Block ad network requests at runtime
@@ -208,9 +224,10 @@ async function proxyCloudMoon(request) {
     return adPatterns.some(pattern => url.toLowerCase().includes(pattern));
   }
   
-  // Remove ad elements from DOM
+  // Remove ad elements from DOM - ONLY target specific ad containers
   function removeAds() {
-    const adSelectors = [
+    // Only remove Google ad-related elements
+    const googleAdSelectors = [
       'iframe[src*="googlesyndication"]',
       'iframe[src*="doubleclick"]',
       'iframe[src*="google-analytics"]',
@@ -221,11 +238,25 @@ async function proxyCloudMoon(request) {
       '[data-ad-client]'
     ];
     
-    adSelectors.forEach(selector => {
+    googleAdSelectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(el => {
-        el.remove();
-        console.log('[Ad Element Removed]', selector);
+        el.style.display = 'none';
+        try { el.remove(); } catch (e) {}
       });
+    });
+    
+    // ONLY target the specific CloudMoon ad containers with exact class names
+    const adDivs = document.querySelectorAll('.a-div-horizontal, .a-div-vertical, .a-div-placeholder, .a-div-box');
+    adDivs.forEach(el => {
+      el.style.display = 'none';
+      el.style.visibility = 'hidden';
+      el.style.opacity = '0';
+      el.style.pointerEvents = 'none';
+      el.style.position = 'absolute';
+      el.style.width = '0';
+      el.style.height = '0';
+      el.style.overflow = 'hidden';
+      try { el.remove(); } catch (e) {}
     });
   }
   
@@ -270,6 +301,7 @@ async function proxyCloudMoon(request) {
     document.addEventListener("DOMContentLoaded", function() {
       fixButtons();
       removeAds();
+      console.log('[CloudMoon] DOM ready - ads removed');
     });
   }
   
@@ -277,13 +309,14 @@ async function proxyCloudMoon(request) {
   window.addEventListener("load", function() {
     fixButtons();
     removeAds();
+    console.log('[CloudMoon] Window loaded - ads removed');
   });
   
-  // Run every 100ms
+  // Run every 200ms (balanced performance and ad blocking)
   setInterval(function() {
     fixButtons();
     removeAds();
-  }, 100);
+  }, 200);
   
   // MutationObserver
   var observer = new MutationObserver(function() {
@@ -318,6 +351,30 @@ async function proxyCloudMoon(request) {
     }
     return origOpen.call(this, u, t, f);
   };
+  
+  // Listen for fullscreen requests from parent
+  window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'REQUEST_FULLSCREEN') {
+      var gameWrapper = document.querySelector('#gameWrapper');
+      if (gameWrapper) {
+        if (gameWrapper.requestFullscreen) {
+          gameWrapper.requestFullscreen();
+        } else if (gameWrapper.webkitRequestFullscreen) {
+          gameWrapper.webkitRequestFullscreen();
+        } else if (gameWrapper.mozRequestFullScreen) {
+          gameWrapper.mozRequestFullScreen();
+        } else if (gameWrapper.msRequestFullscreen) {
+          gameWrapper.msRequestFullscreen();
+        }
+        console.log('[CloudMoon] Game container fullscreen requested');
+      } else {
+        console.log('[CloudMoon] Game container not found, using document fullscreen');
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen();
+        }
+      }
+    }
+  });
   
   console.log("[CloudMoon Fix] Initialized with ad blocking");
 })();
@@ -677,7 +734,21 @@ function getMainHTML() {
         }
 
         function enterFullscreen() {
-            document.documentElement.requestFullscreen();
+            // Try to send message to iframe to fullscreen the game container
+            if (currentIframe) {
+                try {
+                    // Send message through all shadow layers to reach the iframe
+                    currentIframe.contentWindow.postMessage({type: 'REQUEST_FULLSCREEN'}, '*');
+                    console.log('Sent fullscreen request to game container');
+                } catch (e) {
+                    console.log('Cannot send message to iframe (cross-origin), using fallback');
+                    // Fallback to document fullscreen
+                    document.documentElement.requestFullscreen();
+                }
+            } else {
+                // No iframe, use document fullscreen
+                document.documentElement.requestFullscreen();
+            }
             // Hide the dock while fullscreen
             btnDock.classList.add('hidden');
         }
