@@ -10,15 +10,13 @@ Cloudmoon InPlay is a simple JS site that proxies, hides, and loads Cloudmoon in
 
 ## Deploy
 
-To deploy your own Cloudmoon InPlay Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers preview! However, for maximum security, it is recommended that it is embedded into another site using this code (blocks extensions with restrictive content policies by adding extra DOM Layers, which is not required, but works if the base link is blocked!) Be sure to change 
-``` src="Worker" ``` With your Worker (example URl Pattern, Not real deployment : https://milefalencentfog47a.johndoe.workers.dev)
-
+To deploy your own Cloudmoon InPlay Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers preview! 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sriail/Cloudmoon-InPlay)
 
 > [!TIP]
 > Be Shure to share it with your Friends / Co-workers. If you're worried about the url being blocked, Deploy a new worker or create a mirror using the code below on a html site host like Codesandbox of Github pages! Also has a bypass to chrome extension and AI autoblock software (blocks extensions at the root).
 
-Second DOM Embed layer (Recommended if under heavy restrictions, to use on a different HTML site with your original worker URL)
+Optional second DOM Embed layer (Recommended if under heavy restrictions, to use on a different HTML site with your original worker URL)
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -139,14 +137,23 @@ Second DOM Embed layer (Recommended if under heavy restrictions, to use on a dif
 </html>
 ```
 
-## Use
+## Usage
 
 > [!IMPORTANT]
 > Because of google's authentication policies, the google sign in button will NOT WORK. You must hit sign in with email and password instead. You will also need to register your cloudmoon account at home with google and set a password in settings before using elsewhere (Google Sign In button is now visibly hidden to avoid confusion).
 
 Once you sign in, you can click and play games or apps in Cloudmoons library!
-After that, you can use the Control bar for navigation, and go home using the home button, as well as fullscreening in-game removing ads!
+After that, you can use the Control bar for navigation, and go home using the home button, as well as fullscreening in-game (since many School / Work Pcs use low end hardwher runing Windows 10 or Chrome OS, all ads are proxied and removed, striping any unecacary content)
 
 
 > [!NOTE]
-> When Cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked, keeping everything self contained.
+> When Cloudmoon tries to open a new Tab, it will open in the central iframe to avoid being blocked, keeping everything self contained in the site.
+
+## Updates / Bug Fixes
+
+- [x] Fix Proxy Reinizulaiztion
+- [x] Add Fullscreen Fix
+- [x] Add Adblocking
+- [x] Remove Google Sign in Button
+- [x] Renove Adboxes in Game
+- [ ] Add Fullscreen Typebox Fix
