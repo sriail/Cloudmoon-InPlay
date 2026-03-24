@@ -1,7 +1,54 @@
-// Cloudflare Worker - CloudMoon Proxy with Multi-Layer Shadow DOM Protection
+// Cloudflare Worker - CloudMoon Proxy with Multi-Layer Shadow DOM Protection + Ad Blocking
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
+
+// Common ad domains and patterns to block
+const AD_PATTERNS = [
+  'googlesyndication.com',
+  'doubleclick.net',
+  'googleadservices.com',
+  'google-analytics.com',
+  'googletagmanager.com',
+  'googletagservices.com',
+  'adservice.google.com',
+  'pagead2.googlesyndication.com',
+  'tpc.googlesyndication.com',
+  'video-ad-stats.googlesyndication.com',
+  'ads.google.com',
+  'adssettings.google.com',
+  'static.ads-twitter.com',
+  'ads-api.twitter.com',
+  'ads.facebook.com',
+  'an.facebook.com',
+  'adnxs.com',
+  'advertising.com',
+  'outbrain.com',
+  'taboola.com',
+  'criteo.com',
+  'pubmatic.com',
+  'rubiconproject.com',
+  'openx.net',
+  'adsafeprotected.com',
+  'moatads.com',
+  'scorecardresearch.com',
+  '/ads/',
+  '/ad/',
+  '/advert/',
+  '/advertisement/',
+  '/adsense/',
+  '/adserver/',
+  '/analytics/',
+  'prebid',
+  'advertis',
+  'banner',
+  'popup'
+];
+
+function isAdRequest(url) {
+  const urlLower = url.toLowerCase();
+  return AD_PATTERNS.some(pattern => urlLower.includes(pattern));
+}
 
 async function handleRequest(request) {
   const url = new URL(request.url);
@@ -55,10 +102,27 @@ async function proxyCloudMoon(request) {
   let targetURL;
   
   if (url.pathname.startsWith('/proxy/')) {
-    const encodedURL = url.pathname.replace('/proxy/', '');
-    targetURL = decodeURIComponent(encodedURL);
+    // Extract and decode the proxied URL
+    const encodedURL = url.pathname.substring('/proxy/'.length);
+    try {
+      targetURL = decodeURIComponent(encodedURL);
+      // Add back query string if present
+      if (url.search) {
+        targetURL += url.search;
+      }
+    } catch (e) {
+      console.error('Failed to decode proxy URL:', encodedURL);
+      return new Response('Invalid proxy URL', { status: 400 });
+    }
   } else {
+    // Direct proxy to CloudMoon
     targetURL = 'https://web.cloudmoonapp.com' + url.pathname + url.search;
+  }
+  
+  // Block ad requests
+  if (isAdRequest(targetURL)) {
+    console.log('Blocked ad request:', targetURL);
+    return new Response('', { status: 204 });
   }
   
   console.log('Proxying:', targetURL);
@@ -81,7 +145,18 @@ async function proxyCloudMoon(request) {
     redirect: 'follow'
   });
   
-  let response = await fetch(proxyRequest);
+  let response;
+  try {
+    response = await fetch(proxyRequest);
+  } catch (error) {
+    console.error('Proxy fetch failed:', error);
+    return new Response('Failed to fetch resource', { status: 502 });
+  }
+  
+  // If response is 404, log it but still return it
+  if (response.status === 404) {
+    console.log('Resource not found (404):', targetURL);
+  }
   
   const newHeaders = new Headers(response.headers);
   newHeaders.set('Access-Control-Allow-Origin', '*');
@@ -97,9 +172,63 @@ async function proxyCloudMoon(request) {
   if (contentType.includes('text/html')) {
     let html = await response.text();
     
+    // Remove ad-related elements and scripts
+    html = blockAdsInHTML(html);
+    
     const injectionCode = `
 <script id="cm-fix-js">
 (function(){
+  // Block ad network requests at runtime
+  const originalFetch = window.fetch;
+  window.fetch = function(...args) {
+    const url = args[0];
+    if (typeof url === 'string' && isAdUrl(url)) {
+      console.log('[Ad Blocked]', url);
+      return Promise.reject(new Error('Ad blocked'));
+    }
+    return originalFetch.apply(this, args);
+  };
+  
+  const originalXHR = window.XMLHttpRequest.prototype.open;
+  window.XMLHttpRequest.prototype.open = function(method, url) {
+    if (isAdUrl(url)) {
+      console.log('[Ad Blocked]', url);
+      return;
+    }
+    return originalXHR.apply(this, arguments);
+  };
+  
+  function isAdUrl(url) {
+    const adPatterns = [
+      'googlesyndication', 'doubleclick', 'googleadservices',
+      'google-analytics', 'googletagmanager', 'googletagservices',
+      '/ads/', '/ad/', '/advert', 'adsense', 'analytics',
+      'facebook.com/ads', 'twitter.com/ads'
+    ];
+    return adPatterns.some(pattern => url.toLowerCase().includes(pattern));
+  }
+  
+  // Remove ad elements from DOM
+  function removeAds() {
+    const adSelectors = [
+      'iframe[src*="googlesyndication"]',
+      'iframe[src*="doubleclick"]',
+      'iframe[src*="google-analytics"]',
+      'div[id*="google_ads"]',
+      'div[class*="adsbygoogle"]',
+      'ins.adsbygoogle',
+      '[data-ad-slot]',
+      '[data-ad-client]'
+    ];
+    
+    adSelectors.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => {
+        el.remove();
+        console.log('[Ad Element Removed]', selector);
+      });
+    });
+  }
+  
   function fixButtons() {
     var allBtns = document.querySelectorAll("button.google-button");
     for (var i = 0; i < allBtns.length; i++) {
@@ -130,23 +259,36 @@ async function proxyCloudMoon(request) {
     }
   }
   
+  // Run ad removal immediately
+  removeAds();
+  
   // Run immediately
   fixButtons();
   
   // Run on DOM ready
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fixButtons);
+    document.addEventListener("DOMContentLoaded", function() {
+      fixButtons();
+      removeAds();
+    });
   }
   
   // Run on window load
-  window.addEventListener("load", fixButtons);
+  window.addEventListener("load", function() {
+    fixButtons();
+    removeAds();
+  });
   
   // Run every 100ms
-  setInterval(fixButtons, 100);
+  setInterval(function() {
+    fixButtons();
+    removeAds();
+  }, 100);
   
   // MutationObserver
   var observer = new MutationObserver(function() {
     fixButtons();
+    removeAds();
   });
   
   function startObserver() {
@@ -163,7 +305,7 @@ async function proxyCloudMoon(request) {
   }
   startObserver();
   
-  // Intercept window.open for games
+  // Intercept window.open for games - now proxy through worker
   var origOpen = window.open;
   window.open = function(u, t, f) {
     if (u && u.indexOf("run-site") > -1) {
@@ -177,7 +319,7 @@ async function proxyCloudMoon(request) {
     return origOpen.call(this, u, t, f);
   };
   
-  console.log("[CloudMoon Fix] Initialized - JS only, no CSS hiding");
+  console.log("[CloudMoon Fix] Initialized with ad blocking");
 })();
 </script>`;
     
@@ -194,11 +336,48 @@ async function proxyCloudMoon(request) {
     });
   }
   
+  // Block ads in JavaScript files
+  if (contentType.includes('javascript') || contentType.includes('application/x-javascript')) {
+    const targetUrlLower = targetURL.toLowerCase();
+    if (isAdRequest(targetURL)) {
+      console.log('Blocked ad script:', targetURL);
+      return new Response('// Ad script blocked', {
+        status: 200,
+        headers: { 'Content-Type': 'application/javascript' }
+      });
+    }
+  }
+  
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers: newHeaders
   });
+}
+
+function blockAdsInHTML(html) {
+  // Remove Google AdSense scripts
+  html = html.replace(/<script[^>]*googlesyndication[^>]*>[\s\S]*?<\/script>/gi, '');
+  html = html.replace(/<script[^>]*adsbygoogle[^>]*>[\s\S]*?<\/script>/gi, '');
+  
+  // Remove Google Analytics
+  html = html.replace(/<script[^>]*google-analytics[^>]*>[\s\S]*?<\/script>/gi, '');
+  html = html.replace(/<script[^>]*googletagmanager[^>]*>[\s\S]*?<\/script>/gi, '');
+  
+  // Remove DoubleClick
+  html = html.replace(/<script[^>]*doubleclick[^>]*>[\s\S]*?<\/script>/gi, '');
+  
+  // Remove ad iframes
+  html = html.replace(/<iframe[^>]*googlesyndication[^>]*>[\s\S]*?<\/iframe>/gi, '');
+  html = html.replace(/<iframe[^>]*doubleclick[^>]*>[\s\S]*?<\/iframe>/gi, '');
+  
+  // Remove ad insertion elements
+  html = html.replace(/<ins[^>]*adsbygoogle[^>]*>[\s\S]*?<\/ins>/gi, '');
+  
+  // Remove divs with ad IDs
+  html = html.replace(/<div[^>]*id="google_ads[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '');
+  
+  return html;
 }
 
 function getMainHTML() {
@@ -462,11 +641,23 @@ function getMainHTML() {
             let fixedURL = url;
             const workerDomain = window.location.origin;
             
+            // Check if URL is already on our worker domain
             if (url.includes(workerDomain)) {
-                fixedURL = url.replace(workerDomain, 'https://web.cloudmoonapp.com');
+                // Already on our domain, use as-is (avoid double-proxying)
+                fixedURL = url;
+                console.log('Game URL already on worker domain, using directly');
+            } else if (url.includes('://')) {
+                // External URL - proxy it through worker
+                fixedURL = workerDomain + '/proxy/' + encodeURIComponent(url);
+                console.log('External game URL, proxying through worker');
+            } else if (url.startsWith('/')) {
+                // Relative URL - keep it (will be proxied automatically)
+                fixedURL = url;
+                console.log('Relative game URL, using as-is');
             }
             
             console.log(\`%c Loading game with \${SHADOW_LAYERS}-layer Shadow DOM protection\`, 'color: #667eea; font-weight: bold;');
+            console.log('Final game URL:', fixedURL);
             
             createMultiLayerShadowFrame(fixedURL, true);
             
@@ -498,7 +689,7 @@ function getMainHTML() {
             }
         });
         
-        console.log('%c CloudMoon Proxy Active', 'color: #667eea; font-size: 18px; font-weight: bold;');
+        console.log('%c CloudMoon Proxy Active with Ad Blocking', 'color: #667eea; font-size: 18px; font-weight: bold;');
         console.log(\`%c Multi-Layer Shadow DOM Protection: \${SHADOW_LAYERS} Layers\`, 'color: #10b981; font-size: 14px; font-weight: bold;');
         
         // Register Service Worker for PWA
@@ -622,7 +813,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Skip cross-origin requests - let browser handle them
   if (!event.request.url.startsWith(self.location.origin)) {
-    event.respondWith(fetch(event.request));
     return;
   }
 
@@ -640,16 +830,23 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => {
+      .catch((error) => {
+        console.log('[ServiceWorker] Fetch failed, trying cache:', event.request.url);
         // If network fails, try to serve from cache
         return caches.match(event.request).then((response) => {
           if (response) {
             return response;
           }
-          // If not in cache, return a basic offline page
+          // If not in cache, return a basic offline page for navigation
           if (event.request.mode === 'navigate') {
             return caches.match('/');
           }
+          // For other resources, return a minimal response to prevent errors
+          return new Response('', { 
+            status: 200, 
+            statusText: 'OK',
+            headers: new Headers({ 'Content-Type': 'text/plain' })
+          });
         });
       })
   );
