@@ -11,6 +11,8 @@ Cloudmoon InPlay is a simple JS site that proxies, hides, and loads Cloudmoon in
 ## Deploy
 
 To deploy your own Cloudmoon InPlay Cloudflare worker, click the deploy to Cloudflare button, and then play through the workers preview! 
+
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sriail/Cloudmoon-InPlay)
 
 > [!TIP]
