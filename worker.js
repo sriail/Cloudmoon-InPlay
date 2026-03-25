@@ -357,16 +357,128 @@ async function proxyCloudMoon(request) {
     if (event.data && event.data.type === 'REQUEST_FULLSCREEN') {
       var gameWrapper = document.querySelector('#gameWrapper');
       if (gameWrapper) {
-        if (gameWrapper.requestFullscreen) {
-          gameWrapper.requestFullscreen();
-        } else if (gameWrapper.webkitRequestFullscreen) {
-          gameWrapper.webkitRequestFullscreen();
-        } else if (gameWrapper.mozRequestFullScreen) {
-          gameWrapper.mozRequestFullScreen();
-        } else if (gameWrapper.msRequestFullscreen) {
-          gameWrapper.msRequestFullscreen();
+        // Find UI elements to overlay on fullscreen
+        var inputDiv = document.querySelector('#input-div');
+        var sidebar = document.querySelector('.sidebar.sidebar-open') || document.querySelector('.sidebar');
+        var floatingBall = document.querySelector('#floating-ball');
+        
+        // Store original parents, styles, and positions for restoration
+        var elementsToRestore = [];
+        
+        function storeAndMoveElement(element) {
+          if (!element) return;
+          
+          var originalParent = element.parentNode;
+          var originalNextSibling = element.nextSibling;
+          var originalStyle = element.getAttribute('style') || '';
+          var computedStyle = window.getComputedStyle(element);
+          var originalPosition = {
+            position: computedStyle.position,
+            top: computedStyle.top,
+            left: computedStyle.left,
+            right: computedStyle.right,
+            bottom: computedStyle.bottom,
+            zIndex: computedStyle.zIndex,
+            transform: computedStyle.transform
+          };
+          
+          elementsToRestore.push({
+            element: element,
+            parent: originalParent,
+            nextSibling: originalNextSibling,
+            styleAttr: originalStyle,
+            position: originalPosition
+          });
+          
+          // Move into game wrapper and style for overlay
+          gameWrapper.appendChild(element);
+          element.style.position = 'fixed';
+          element.style.zIndex = '999999';
+          element.style.pointerEvents = 'auto';
+          
+          // Preserve original bottom/left positioning if it exists
+          if (element.id === 'input-div') {
+            element.style.bottom = '20px';
+            element.style.left = '0px';
+          } else if (element.id === 'floating-ball') {
+            // Keep floating ball visible
+            element.style.left = '0px';
+            element.style.top = '50%';
+            element.style.transform = 'translateY(-50%)';
+          }
         }
-        console.log('[CloudMoon] Game container fullscreen requested');
+        
+        // Ensure gameWrapper can contain positioned elements
+        var originalWrapperPosition = gameWrapper.style.position;
+        gameWrapper.style.position = 'relative';
+        
+        // Move elements
+        storeAndMoveElement(inputDiv);
+        storeAndMoveElement(sidebar);
+        storeAndMoveElement(floatingBall);
+        
+        // Request fullscreen
+        var fullscreenPromise = null;
+        if (gameWrapper.requestFullscreen) {
+          fullscreenPromise = gameWrapper.requestFullscreen();
+        } else if (gameWrapper.webkitRequestFullscreen) {
+          fullscreenPromise = gameWrapper.webkitRequestFullscreen();
+        } else if (gameWrapper.mozRequestFullScreen) {
+          fullscreenPromise = gameWrapper.mozRequestFullScreen();
+        } else if (gameWrapper.msRequestFullscreen) {
+          fullscreenPromise = gameWrapper.msRequestFullscreen();
+        }
+        
+        // Listen for fullscreen exit to restore elements
+        var fullscreenExitHandler = function() {
+          // Check if we're actually exiting fullscreen
+          if (document.fullscreenElement || document.webkitFullscreenElement || 
+              document.mozFullScreenElement || document.msFullscreenElement) {
+            return; // Still in fullscreen, don't restore
+          }
+          
+          // Restore all elements
+          elementsToRestore.forEach(function(item) {
+            if (item.element && item.parent) {
+              // Restore to original position in DOM
+              if (item.nextSibling && item.nextSibling.parentNode === item.parent) {
+                item.parent.insertBefore(item.element, item.nextSibling);
+              } else {
+                item.parent.appendChild(item.element);
+              }
+              
+              // Restore original style attribute
+              if (item.styleAttr) {
+                item.element.setAttribute('style', item.styleAttr);
+              } else {
+                item.element.removeAttribute('style');
+              }
+            }
+          });
+          
+          // Restore gameWrapper position
+          if (originalWrapperPosition) {
+            gameWrapper.style.position = originalWrapperPosition;
+          } else {
+            gameWrapper.style.position = '';
+          }
+          
+          // Remove listeners
+          document.removeEventListener('fullscreenchange', fullscreenExitHandler);
+          document.removeEventListener('webkitfullscreenchange', fullscreenExitHandler);
+          document.removeEventListener('mozfullscreenchange', fullscreenExitHandler);
+          document.removeEventListener('MSFullscreenChange', fullscreenExitHandler);
+          
+          console.log('[CloudMoon] Fullscreen exited, UI restored');
+        };
+        
+        // Add listeners for fullscreen exit (cross-browser)
+        document.addEventListener('fullscreenchange', fullscreenExitHandler);
+        document.addEventListener('webkitfullscreenchange', fullscreenExitHandler);
+        document.addEventListener('mozfullscreenchange', fullscreenExitHandler);
+        document.addEventListener('MSFullscreenChange', fullscreenExitHandler);
+        
+        console.log('[CloudMoon] Game container fullscreen requested with UI overlay');
       } else {
         console.log('[CloudMoon] Game container not found, using document fullscreen');
         if (document.documentElement.requestFullscreen) {
