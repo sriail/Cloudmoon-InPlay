@@ -158,4 +158,5 @@ After that, you can use the Control bar for navigation, and go home using the ho
 - [x] Add Adblocking
 - [x] Remove Google Sign in Button
 - [x] Renove Adboxes in Game
-- [ ] Add Fullscreen Typebox Fix
+- [x] Add Fullscreen Typebox Fix
+- [ ] Add Sidebar Hiding Fix
