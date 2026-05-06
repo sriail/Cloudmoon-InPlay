@@ -654,6 +654,10 @@ function getMainHTML() {
         #home-btn {
             display: none;
         }
+
+        #install-btn {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -671,6 +675,11 @@ function getMainHTML() {
         <button class="dock-btn" id="fullscreen-btn" onclick="enterFullscreen()" title="Fullscreen">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+            </svg>
+        </button>
+        <button class="dock-btn" id="install-btn" onclick="installPWA()" title="Install App">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
         </button>
     </div>
@@ -846,21 +855,11 @@ function getMainHTML() {
         }
 
         function enterFullscreen() {
-            // Try to send message to iframe to fullscreen the game container
-            if (currentIframe) {
-                try {
-                    // Send message through all shadow layers to reach the iframe
-                    currentIframe.contentWindow.postMessage({type: 'REQUEST_FULLSCREEN'}, '*');
-                    console.log('Sent fullscreen request to game container');
-                } catch (e) {
-                    console.log('Cannot send message to iframe (cross-origin), using fallback');
-                    // Fallback to document fullscreen
-                    document.documentElement.requestFullscreen();
-                }
-            } else {
-                // No iframe, use document fullscreen
-                document.documentElement.requestFullscreen();
-            }
+            const el = document.documentElement;
+            if (el.requestFullscreen) el.requestFullscreen();
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+            else if (el.msRequestFullscreen) el.msRequestFullscreen();
             // Hide the dock while fullscreen
             btnDock.classList.add('hidden');
         }
@@ -903,13 +902,30 @@ if ('serviceWorker' in navigator) {
 }
         
         let deferredPrompt;
+        const installBtn = document.getElementById('install-btn');
+
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
+            installBtn.style.display = 'flex';
         });
-        
+
+        function installPWA() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    installBtn.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }).catch(() => {
+                deferredPrompt = null;
+            });
+        }
+
         window.addEventListener('appinstalled', () => {
             deferredPrompt = null;
+            installBtn.style.display = 'none';
         });
     </script>
 </body>
