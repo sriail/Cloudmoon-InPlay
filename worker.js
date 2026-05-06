@@ -68,7 +68,7 @@ async function handleRequest(request) {
   // Serve manifest.json for PWA
   if (url.pathname === '/manifest.json') {
     return new Response(getManifest(), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/manifest+json' }
     });
   }
   
@@ -393,27 +393,54 @@ async function proxyCloudMoon(request) {
   // Intercept window.open for games - now proxy through worker
   var origOpen = window.open;
   var workerOrigin = window.location.origin;
-  window.open = function(u, t, f) {
-    if (u && u.indexOf('/run-site/') > -1) {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({type: "LOAD_GAME", url: u}, workerOrigin);
-      } else {
-        window.location.href = u;
+
+  function sendGameUrl(url) {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({type: "LOAD_GAME", url: url}, workerOrigin);
+    }
+  }
+
+  function makeFakeWindow() {
+    // Returns a fake window for about:blank intercepts.
+    // CloudMoon pattern: var w = window.open(); w.location.href = gameUrl;
+    var locObj = { _href: 'about:blank' };
+    Object.defineProperty(locObj, 'href', {
+      get: function() { return this._href; },
+      set: function(url) {
+        this._href = url;
+        if (typeof url === 'string' && url.indexOf('/run-site/') > -1) { sendGameUrl(url); }
       }
-      return {closed: false, close: function(){}, focus: function(){}};
+    });
+    locObj.assign = function(url) { locObj.href = url; };
+    locObj.replace = function(url) { locObj.href = url; };
+    return {
+      closed: false,
+      close: function(){}, focus: function(){}, blur: function(){},
+      location: locObj,
+      document: { write: function(){}, close: function(){}, open: function(){} }
+    };
+  }
+
+  window.open = function(u, t, f) {
+    // Direct run-site URL
+    if (u && u.indexOf('/run-site/') > -1) {
+      sendGameUrl(u);
+      return makeFakeWindow();
+    }
+    // about:blank / no-URL pattern — return fake window to capture subsequent location.href set
+    if (!u || u === '' || u === 'about:blank') {
+      return makeFakeWindow();
     }
     return origOpen.call(this, u, t, f);
   };
-  
+
   // Intercept anchor clicks for games (CloudMoon may use <a target="_blank"> instead of window.open)
   document.addEventListener('click', function(e) {
     var a = e.target.closest('a');
     if (a && a.href && a.href.indexOf('/run-site/') > -1) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({type: "LOAD_GAME", url: a.href}, workerOrigin);
-      }
+      sendGameUrl(a.href);
     }
   }, true);
   
@@ -728,14 +755,14 @@ function getMainHTML() {
 
     <!-- Floating bottom-left controls -->
     <div id="btn-dock">
-        <button class="dock-btn" id="fullscreen-btn" onclick="enterFullscreen()" title="Fullscreen">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
-            </svg>
-        </button>
         <button class="dock-btn" id="home-btn" onclick="goBack()" title="Home">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/>
+            </svg>
+        </button>
+        <button class="dock-btn" id="fullscreen-btn" onclick="enterFullscreen()" title="Fullscreen">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
             </svg>
         </button>
         <button class="dock-btn" id="install-btn" onclick="installPWA()" title="Install App">
@@ -905,7 +932,6 @@ function getMainHTML() {
         }
         
         function goBack() {
-            if (!isShowingGame) return;
             createMultiLayerShadowFrame(mainURL, false);
             isShowingGame = false;
 
