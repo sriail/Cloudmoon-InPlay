@@ -96,12 +96,13 @@ async function handleRequest(request) {
   // Serve PWA icon — Google Classroom product logo SVG (resolution-independent)
   if (url.pathname === '/icon.svg') {
     let iconRes = await fetch('https://fonts.gstatic.com/s/i/productlogos/classroom/v8/192px.svg');
-    if (!iconRes.ok) {
+    const isSVG = iconRes.ok;
+    if (!isSVG) {
       // Fallback to the standard favicon if the versioned SVG is unavailable
       iconRes = await fetch('https://ssl.gstatic.com/classroom/favicon.png');
     }
     const iconHeaders = new Headers(iconRes.headers);
-    iconHeaders.set('Content-Type', 'image/svg+xml');
+    iconHeaders.set('Content-Type', isSVG ? 'image/svg+xml' : 'image/png');
     iconHeaders.set('Cache-Control', 'public, max-age=86400');
     return new Response(iconRes.body, {
       status: iconRes.status,
@@ -633,7 +634,7 @@ function getMainHTML() {
             bottom: 18px;
             left: 18px;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             gap: 10px;
             z-index: 9999;
             transition: opacity 0.3s;
@@ -669,10 +670,6 @@ function getMainHTML() {
             transform: scale(0.93);
         }
 
-        #home-btn {
-            display: none;
-        }
-
         #install-btn {
             display: none;
         }
@@ -685,14 +682,14 @@ function getMainHTML() {
 
     <!-- Floating bottom-left controls -->
     <div id="btn-dock">
-        <button class="dock-btn" id="home-btn" onclick="goBack()" title="Home">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/>
-            </svg>
-        </button>
         <button class="dock-btn" id="fullscreen-btn" onclick="enterFullscreen()" title="Fullscreen">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+            </svg>
+        </button>
+        <button class="dock-btn" id="home-btn" onclick="goBack()" title="Home">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/>
             </svg>
         </button>
         <button class="dock-btn" id="install-btn" onclick="installPWA()" title="Install App">
@@ -858,13 +855,12 @@ function getMainHTML() {
             createMultiLayerShadowFrame(fixedURL, true);
             
             isShowingGame = true;
-            homeBtn.style.display = 'flex';
         }
         
         function goBack() {
+            if (!isShowingGame) return;
             createMultiLayerShadowFrame(mainURL, false);
             isShowingGame = false;
-            homeBtn.style.display = 'none';
 
             // Exit fullscreen if active
             if (document.fullscreenElement) {
@@ -985,8 +981,8 @@ function getManifest() {
 
 function getServiceWorker() {
   return `// CloudMoon InPlay Service Worker
-const CACHE_NAME = 'cloudmoon-v1';
-const RUNTIME_CACHE = 'cloudmoon-runtime';
+const CACHE_NAME = 'cloudmoon-v2';
+const RUNTIME_CACHE = 'cloudmoon-runtime-v2';
 
 // Install event - cache essential resources
 self.addEventListener('install', (event) => {
