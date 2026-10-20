@@ -7,12 +7,6 @@ var worker_default = {
     return handleRequest(request);
   }
 };
-
-function isAdRequest(url) {
-  const urlLower = url.toLowerCase();
-  return AD_PATTERNS.some((pattern) => urlLower.includes(pattern));
-}
-__name(isAdRequest, "isAdRequest");
 async function handleRequest(request) {
   const url = new URL(request.url);
   if (url.pathname === "/" || url.pathname === "") {
@@ -108,24 +102,20 @@ async function proxyCloudMoon(request) {
   } else {
     targetURL = "https://web.cloudmoonapp.com" + url.pathname + url.search;
   }
-  if (isAdRequest(targetURL)) {
-    console.log("[Ad Blocked] Blocked an add URL request for recource savings:", targetURL);
-    return new Response("", { status: 204 });
-  }
   console.log("Proxying:", targetURL);
- const headers = new Headers(request.headers);
+  const headers = new Headers(request.headers);
 
-headers.set(
-  "User-Agent",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-);
-// PATCH: Mobile time limits (If conecting from mobile, use pc app instead for more time)
-headers.set("Sec-CH-UA-Mobile", "?0");
-headers.set("Sec-CH-UA-Platform", '"Windows"');
-headers.delete("cf-connecting-ip");
-headers.delete("cf-ray");
-headers.delete("x-forwarded-proto");
-headers.delete("x-real-ip");
+  headers.set(
+    "User-Agent",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+  );
+  // PATCH: Mobile time limits (If conecting from mobile, use pc app instead for more time)
+  headers.set("Sec-CH-UA-Mobile", "?0");
+  headers.set("Sec-CH-UA-Platform", '"Windows"');
+  headers.delete("cf-connecting-ip");
+  headers.delete("cf-ray");
+  headers.delete("x-forwarded-proto");
+  headers.delete("x-real-ip");
   const proxyRequest = new Request(targetURL, {
     method: request.method,
     headers,
@@ -153,98 +143,15 @@ headers.delete("x-real-ip");
   const contentType = response.headers.get("Content-Type") || "";
   if (contentType.includes("text/html")) {
     let html = await response.text();
-    html = blockAdsInHTML(html);
     const injectionCode = `
-<style id="cm-ad-blocker-css">
-  /* Hide ONLY the specific ad container divs */
-  .a-div-horizontal,
-  .a-div-vertical,
-  .a-div-placeholder,
-  .a-div-box {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    position: absolute !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-  }
-</style>
 <script id="cm-fix-js">
 (function(){
-  // Block ad network requests at runtime
-  const originalFetch = window.fetch;
-  window.fetch = function(...args) {
-    const url = args[0];
-    if (typeof url === 'string' && isAdUrl(url)) {
-      console.log('[Ad Blocked] An add has been blocked to save client recources from', url);
-      return Promise.reject(new Error('Ad blocked'));
-    }
-    return originalFetch.apply(this, args);
-  };
-  
-  const originalXHR = window.XMLHttpRequest.prototype.open;
-  window.XMLHttpRequest.prototype.open = function(method, url) {
-    if (isAdUrl(url)) {
-      console.log('[Ad Blocked] An add has been blocked to save client recources from', url);
-      return;
-    }
-    return originalXHR.apply(this, arguments);
-  };
-  
-  function isAdUrl(url) {
-    const adPatterns = [
-      'googlesyndication', 'doubleclick', 'googleadservices',
-      'google-analytics', 'googletagmanager', 'googletagservices',
-      '/ads/', '/ad/', '/advert', 'adsense', 'analytics',
-      'facebook.com/ads', 'twitter.com/ads'
-    ];
-    return adPatterns.some(pattern => url.toLowerCase().includes(pattern));
-  }
-  
-  // Remove ad elements from DOM - ONLY target specific ad containers
-  function removeAds() {
-    // Only remove Google ad-related elements
-    const googleAdSelectors = [
-      'iframe[src*="googlesyndication"]',
-      'iframe[src*="doubleclick"]',
-      'iframe[src*="google-analytics"]',
-      'div[id*="google_ads"]',
-      'div[class*="adsbygoogle"]',
-      'ins.adsbygoogle',
-      '[data-ad-slot]',
-      '[data-ad-client]'
-    ];
-    
-    googleAdSelectors.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => {
-        el.style.display = 'none';
-        try { el.remove(); } catch (e) {}
-      });
-    });
-    
-    // ONLY target the specific CloudMoon ad containers with exact class names
-    const adDivs = document.querySelectorAll('.a-div-horizontal, .a-div-vertical, .a-div-placeholder, .a-div-box');
-    adDivs.forEach(el => {
-      el.style.display = 'none';
-      el.style.visibility = 'hidden';
-      el.style.opacity = '0';
-      el.style.pointerEvents = 'none';
-      el.style.position = 'absolute';
-      el.style.width = '0';
-      el.style.height = '0';
-      el.style.overflow = 'hidden';
-      try { el.remove(); } catch (e) {}
-    });
-  }
-  
-function fixButtons() { 
+function fixButtons() {
   var allBtns = document.querySelectorAll("button.google-button, button.apple-button");
     for (var i = 0; i < allBtns.length; i++) {
       var btn = allBtns[i];
       var styleAttr = btn.getAttribute("style") || "";
-      
+
       // Check for purple background (123, 108, 196) - SHOW this button
       if (styleAttr.indexOf("123, 108, 196") !== -1 || styleAttr.indexOf("123,108,196") !== -1) {
         btn.style.setProperty("display", "flex", "important");
@@ -268,41 +175,34 @@ function fixButtons() {
       }
     }
   }
-  
-  // Run ad removal immediately
-  removeAds();
-  
+
   // Run immediately
   fixButtons();
-  
+
   // Run on DOM ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function() {
       fixButtons();
-      removeAds();
-      console.log('[Worker] DOM ready, all ads have been removed');
+      console.log('[Worker] DOM ready, buttons fixed');
     });
   }
-  
+
   // Run on window load
   window.addEventListener("load", function() {
     fixButtons();
-    removeAds();
-    console.log('[Worker] Window sucessfully loaded, all ads have been removed');
+    console.log('[Worker] Window sucessfully loaded, buttons fixed');
   });
-  
-  // Run every 200ms (balanced performance and ad blocking)
+
+  // Run every 200ms (balanced performance and button fixing)
   setInterval(function() {
     fixButtons();
-    removeAds();
   }, 200);
-  
+
   // MutationObserver
   var observer = new MutationObserver(function() {
     fixButtons();
-    removeAds();
   });
-  
+
   function startObserver() {
     if (document.body) {
       observer.observe(document.body, {
@@ -316,7 +216,7 @@ function fixButtons() {
     }
   }
   startObserver();
-  
+
   // Intercept window.open for games - now proxy through worker
   var origOpen = window.open;
   var workerOrigin = window.location.origin;
@@ -354,7 +254,7 @@ function fixButtons() {
       sendGameUrl(u);
       return makeFakeWindow();
     }
-    // about:blank / no-URL pattern \u2014 return fake window to capture subsequent location.href set
+    // about:blank / no-URL pattern — return fake window to capture subsequent location.href set
     if (!u || u === '' || u === 'about:blank') {
       return makeFakeWindow();
     }
@@ -370,7 +270,7 @@ function fixButtons() {
       sendGameUrl(a.href);
     }
   }, true);
-  
+
   // Listen for fullscreen requests from parent
   window.addEventListener('message', function(event) {
     if (event.data && event.data.type === 'REQUEST_FULLSCREEN') {
@@ -380,13 +280,13 @@ function fixButtons() {
         var inputDiv = document.querySelector('#input-div');
         var sidebar = document.querySelector('.sidebar.sidebar-open') || document.querySelector('.sidebar');
         var floatingBall = document.querySelector('#floating-ball');
-        
+
         // Store original parents, styles, and positions for restoration
         var elementsToRestore = [];
-        
+
         function storeAndMoveElement(element) {
           if (!element) return;
-          
+
           var originalParent = element.parentNode;
           var originalNextSibling = element.nextSibling;
           var originalStyle = element.getAttribute('style') || '';
@@ -400,7 +300,7 @@ function fixButtons() {
             zIndex: computedStyle.zIndex,
             transform: computedStyle.transform
           };
-          
+
           elementsToRestore.push({
             element: element,
             parent: originalParent,
@@ -408,13 +308,13 @@ function fixButtons() {
             styleAttr: originalStyle,
             position: originalPosition
           });
-          
+
           // Move into game wrapper and style for overlay
           gameWrapper.appendChild(element);
           element.style.position = 'fixed';
           element.style.zIndex = '999999';
           element.style.pointerEvents = 'auto';
-          
+
           // Preserve original bottom/left positioning if it exists
           if (element.id === 'input-div') {
             element.style.bottom = '20px';
@@ -426,16 +326,16 @@ function fixButtons() {
             element.style.transform = 'translateY(-50%)';
           }
         }
-        
+
         // Ensure gameWrapper can contain positioned elements
         var originalWrapperPosition = gameWrapper.style.position;
         gameWrapper.style.position = 'relative';
-        
+
         // Move elements
         storeAndMoveElement(inputDiv);
         storeAndMoveElement(sidebar);
         storeAndMoveElement(floatingBall);
-        
+
         // Request fullscreen
         var fullscreenPromise = null;
         if (gameWrapper.requestFullscreen) {
@@ -447,15 +347,15 @@ function fixButtons() {
         } else if (gameWrapper.msRequestFullscreen) {
           fullscreenPromise = gameWrapper.msRequestFullscreen();
         }
-        
+
         // Listen for fullscreen exit to restore elements
         var fullscreenExitHandler = function() {
           // Check if we're actually exiting fullscreen
-          if (document.fullscreenElement || document.webkitFullscreenElement || 
+          if (document.fullscreenElement || document.webkitFullscreenElement ||
               document.mozFullScreenElement || document.msFullscreenElement) {
             return; // Still in fullscreen, don't restore
           }
-          
+
           // Restore all elements
           elementsToRestore.forEach(function(item) {
             if (item.element && item.parent) {
@@ -465,38 +365,38 @@ function fixButtons() {
               } else {
                 item.parent.appendChild(item.element);
               }
-              
+
               // Restore original style attribute
               if (item.styleAttr) {
-                item.element.setAttribute('style', item.styleAttr);
+                item.element.setAttribute("style", item.styleAttr);
               } else {
-                item.element.removeAttribute('style');
+                item.element.removeAttribute("style");
               }
             }
           });
-          
+
           // Restore gameWrapper position
           if (originalWrapperPosition) {
             gameWrapper.style.position = originalWrapperPosition;
           } else {
             gameWrapper.style.position = '';
           }
-          
+
           // Remove listeners
           document.removeEventListener('fullscreenchange', fullscreenExitHandler);
           document.removeEventListener('webkitfullscreenchange', fullscreenExitHandler);
           document.removeEventListener('mozfullscreenchange', fullscreenExitHandler);
           document.removeEventListener('MSFullscreenChange', fullscreenExitHandler);
-          
+
           console.log('[Worker] Fullscreen exited by client, UI has been restored sucessfully');
         };
-        
+
         // Add listeners for fullscreen exit (cross-browser)
         document.addEventListener('fullscreenchange', fullscreenExitHandler);
         document.addEventListener('webkitfullscreenchange', fullscreenExitHandler);
         document.addEventListener('mozfullscreenchange', fullscreenExitHandler);
         document.addEventListener('MSFullscreenChange', fullscreenExitHandler);
-        
+
         console.log('[Worker] Game container fullscreen requested from client with UI overlay');
       } else {
         console.log('[Worker] Game container not found, using document fullscreen temporarialy');
@@ -506,8 +406,8 @@ function fixButtons() {
       }
     }
   });
-  
-  console.log("[Worker] Initialized with ad blocking to save client recources");
+
+  console.log("[Worker] Initialized");
 })();
 <\/script>`;
     if (html.includes("</head>")) {
@@ -521,16 +421,6 @@ function fixButtons() {
       headers: newHeaders
     });
   }
-  if (contentType.includes("javascript") || contentType.includes("application/x-javascript")) {
-    const targetUrlLower = targetURL.toLowerCase();
-    if (isAdRequest(targetURL)) {
-      console.log("[Ad Blocked] Blocked ad script to save client recources:", targetURL);
-      return new Response("// Ad script blocked", {
-        status: 200,
-        headers: { "Content-Type": "application/javascript" }
-      });
-    }
-  }
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -538,19 +428,6 @@ function fixButtons() {
   });
 }
 __name(proxyCloudMoon, "proxyCloudMoon");
-function blockAdsInHTML(html) {
-  html = html.replace(/<script[^>]*googlesyndication[^>]*>[\s\S]*?<\/script>/gi, "");
-  html = html.replace(/<script[^>]*adsbygoogle[^>]*>[\s\S]*?<\/script>/gi, "");
-  html = html.replace(/<script[^>]*google-analytics[^>]*>[\s\S]*?<\/script>/gi, "");
-  html = html.replace(/<script[^>]*googletagmanager[^>]*>[\s\S]*?<\/script>/gi, "");
-  html = html.replace(/<script[^>]*doubleclick[^>]*>[\s\S]*?<\/script>/gi, "");
-  html = html.replace(/<iframe[^>]*googlesyndication[^>]*>[\s\S]*?<\/iframe>/gi, "");
-  html = html.replace(/<iframe[^>]*doubleclick[^>]*>[\s\S]*?<\/iframe>/gi, "");
-  html = html.replace(/<ins[^>]*adsbygoogle[^>]*>[\s\S]*?<\/ins>/gi, "");
-  html = html.replace(/<div[^>]*id="google_ads[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
-  return html;
-}
-__name(blockAdsInHTML, "blockAdsInHTML");
 function getMainHTML() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -559,7 +436,7 @@ function getMainHTML() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home - Classroom</title>
     <meta name="description" content="Play Roblox, Fortnite, Call of Duty Mobile, Delta Force, and more in your browser">
-    
+
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#2d2d2d">
     <meta name="mobile-web-app-capable" content="yes">
@@ -568,7 +445,7 @@ function getMainHTML() {
     <meta name="apple-mobile-web-app-title" content="CloudMoon">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/favicon.png">
-    
+
     <link rel="icon" id="favicon" type="image/png" href="/favicon.png">
     <style>
         * {
@@ -576,21 +453,21 @@ function getMainHTML() {
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
             background: #0d1117;
             color: #c9d1d9;
             overflow: hidden;
         }
-        
+
         #container {
             width: 100vw;
             height: 100vh;
             display: flex;
             flex-direction: column;
         }
-        
+
         #frame-container {
             flex: 1;
             width: 100%;
@@ -598,7 +475,7 @@ function getMainHTML() {
             background: white;
             position: relative;
         }
-        
+
         iframe {
             width: 100%;
             height: 100%;
@@ -606,12 +483,12 @@ function getMainHTML() {
             background: white;
             outline: none;
         }
-        
+
         iframe:focus {
             outline: none;
         }
 
-        /* Floating button dock \u2014 bottom left */
+        /* Floating button dock — bottom left */
         #btn-dock {
             position: fixed;
             bottom: 18px;
@@ -686,22 +563,22 @@ function getMainHTML() {
         const frameContainer = document.getElementById('frame-container');
         const homeBtn = document.getElementById('home-btn');
         const btnDock = document.getElementById('btn-dock');
-        
+
         let isShowingGame = false;
         let mainURL = '/web.cloudmoonapp.com/';
         let shadowRoots = [];
         let currentIframe = null;
-        
+
         const SANDBOX_HOME = 'allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-downloads allow-pointer-lock allow-top-navigation-by-user-activation';
         const SANDBOX_GAME = 'allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-downloads allow-pointer-lock allow-top-navigation-by-user-activation';
         const ALLOW_PERMISSIONS = 'accelerometer; camera; encrypted-media; geolocation; gyroscope; hid; microphone; midi; clipboard-read; clipboard-write; xr-spatial-tracking; gamepad';
-        
+
         const SHADOW_LAYERS = 4;
-        
+
         function createMultiLayerShadowFrame(url, isGame = false) {
             frameContainer.innerHTML = '';
             shadowRoots = [];
-            
+
             let currentHost = document.createElement('div');
             currentHost.style.width = '100%';
             currentHost.style.height = '100%';
@@ -712,13 +589,13 @@ function getMainHTML() {
             currentHost.style.overflow = 'hidden';
             currentHost.setAttribute('data-id', generateRandomId());
             currentHost.setAttribute('data-component', 'container');
-            
+
             frameContainer.appendChild(currentHost);
-            
+
             for (let i = 0; i < SHADOW_LAYERS; i++) {
                 const shadowRoot = currentHost.attachShadow({ mode: 'closed' });
                 shadowRoots.push(shadowRoot);
-                
+
                 if (i < SHADOW_LAYERS - 1) {
                     const nextHost = document.createElement('div');
                     nextHost.style.width = '100%';
@@ -730,10 +607,10 @@ function getMainHTML() {
                     nextHost.style.overflow = 'hidden';
                     nextHost.setAttribute('data-layer', i.toString());
                     nextHost.setAttribute('data-id', generateRandomId());
-                    
+
                     shadowRoot.appendChild(nextHost);
                     currentHost = nextHost;
-                    
+
                     console.log('[Worker] Shadow DOM created sucessfully');
                 } else {
                     const iframe = document.createElement('iframe');
@@ -744,7 +621,7 @@ function getMainHTML() {
                     iframe.style.padding = '0';
                     iframe.style.display = 'block';
                     iframe.style.overflow = 'hidden';
-                    
+
                     const sandboxAttr = isGame ? SANDBOX_GAME : SANDBOX_HOME;
                     iframe.setAttribute('sandbox', sandboxAttr);
                     iframe.setAttribute('allow', ALLOW_PERMISSIONS);
@@ -754,35 +631,35 @@ function getMainHTML() {
                     iframe.setAttribute('loading', 'eager');
                     iframe.setAttribute('data-frame-id', generateRandomId());
                     iframe.setAttribute('data-secure', 'true');
-                    
+
                     iframe.src = url;
-                    
+
                     shadowRoot.appendChild(iframe);
                     currentIframe = iframe;
-                    
+
                     iframe.addEventListener('load', () => {
                         focusIframe();
                     });
-                    
+
                     iframe.addEventListener('error', (e) => {
                         console.error('Iframe error:', e);
                     });
-                    
+
                     console.log('[Worker] Fianal Shadow DOM created sucessfully');
                 }
             }
-            
+
             console.log('[Worker] Layer shadow DOM Active');
         }
-        
+
         function generateRandomId() {
             return 'x' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
         }
-        
+
         function createShadowFrame(url, isGame = false) {
             createMultiLayerShadowFrame(url, isGame);
         }
-        
+
         function focusIframe() {
             setTimeout(() => {
                 if (currentIframe) {
@@ -795,16 +672,16 @@ function getMainHTML() {
                 }
             }, 100);
         }
-        
+
         // Initialize with multi-layer shadow DOM
         createMultiLayerShadowFrame(mainURL, false);
-        
+
         document.addEventListener('click', (e) => {
             if (currentIframe && e.target !== currentIframe) {
                 focusIframe();
             }
         });
-        
+
         window.addEventListener('message', (event) => {
             if (event.origin !== window.location.origin) return;
             if (event.data && event.data.type === 'LOAD_GAME') {
@@ -813,11 +690,11 @@ function getMainHTML() {
                 loadGame(gameUrl);
             }
         });
-        
+
         function loadGame(url) {
             let fixedURL = url;
             const workerDomain = window.location.origin;
-            
+
             // Check if URL is already on our worker domain
             if (url.includes(workerDomain)) {
                 // Already on our domain, use as-is (avoid double-proxying)
@@ -832,15 +709,15 @@ function getMainHTML() {
                 fixedURL = url;
                 console.log('[Worker] Relative game URL, using as-is in the worker');
             }
-            
+
             console.log('[Worker] Game loaded sucessfully via the Shadow DOM');
             console.log('[Worker] Final game URL created by the worker:', fixedURL);
-            
+
             createMultiLayerShadowFrame(fixedURL, true);
-            
+
             isShowingGame = true;
         }
-        
+
         function goBack() {
             createMultiLayerShadowFrame(mainURL, false);
             isShowingGame = false;
@@ -865,18 +742,18 @@ function getMainHTML() {
                 else if (el.msRequestFullscreen) el.msRequestFullscreen();
             }
         }
-        
+
         console.log('[Worker] Welcome to CLOUDMOON-INPLAY, a Cloudflare Workers proxy for Cloudmoon, developed by Sriail for low-recource systems. For more information, visit https://github.com/sriail/Cloudmoon-InPlay for our official repo!')
         console.log('[Worker] CLOUDMOON-INPLAY Proxy is active; establishing conections, and proxying the current page content');
         console.log('[Worker] Shadow DOM container establishing');
-        
+
         // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
                 console.log('[Worker] PWA Service Worker has been registered successfully');
-                
+
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
                     newWorker.addEventListener('statechange', () => {
@@ -896,7 +773,7 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
-        
+
         let deferredPrompt;
         const installBtn = document.getElementById('install-btn');
 
@@ -1065,8 +942,8 @@ self.addEventListener('fetch', (event) => {
             return caches.match('/');
           }
           // For other resources, return a minimal response to prevent errors
-          return new Response('', { 
-            status: 200, 
+          return new Response('', {
+            status: 200,
             statusText: 'OK',
             headers: new Headers({ 'Content-Type': 'text/plain' })
           });
@@ -1080,7 +957,7 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-});`;
+})`;
 }
 __name(getServiceWorker, "getServiceWorker");
 export {
