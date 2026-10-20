@@ -7,46 +7,7 @@ var worker_default = {
     return handleRequest(request);
   }
 };
-var AD_PATTERNS = [
-  "googlesyndication.com",
-  "doubleclick.net",
-  "googleadservices.com",
-  "google-analytics.com",
-  "googletagmanager.com",
-  "googletagservices.com",
-  "adservice.google.com",
-  "pagead2.googlesyndication.com",
-  "tpc.googlesyndication.com",
-  "video-ad-stats.googlesyndication.com",
-  "ads.google.com",
-  "adssettings.google.com",
-  "static.ads-twitter.com",
-  "ads-api.twitter.com",
-  "ads.facebook.com",
-  "an.facebook.com",
-  "adnxs.com",
-  "advertising.com",
-  "outbrain.com",
-  "taboola.com",
-  "criteo.com",
-  "pubmatic.com",
-  "rubiconproject.com",
-  "openx.net",
-  "adsafeprotected.com",
-  "moatads.com",
-  "scorecardresearch.com",
-  "/ads/",
-  "/ad/",
-  "/advert/",
-  "/advertisement/",
-  "/adsense/",
-  "/adserver/",
-  "/analytics/",
-  "prebid",
-  "advertis",
-  "banner",
-  "popup"
-];
+
 function isAdRequest(url) {
   const urlLower = url.toLowerCase();
   return AD_PATTERNS.some((pattern) => urlLower.includes(pattern));
