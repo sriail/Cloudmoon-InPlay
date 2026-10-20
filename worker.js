@@ -152,15 +152,19 @@ async function proxyCloudMoon(request) {
     return new Response("", { status: 204 });
   }
   console.log("Proxying:", targetURL);
-  const headers = new Headers(request.headers);
-  headers.set("Host", new URL(targetURL).host);
-  headers.delete("cf-connecting-ip");
-  headers.delete("cf-ray");
-  headers.delete("x-forwarded-proto");
-  headers.delete("x-real-ip");
-  if (!headers.has("User-Agent")) {
-    headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-  }
+ const headers = new Headers(request.headers);
+
+headers.set(
+  "User-Agent",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+);
+// PATCH: Mobile time limits (If conecting from mobile, use pc app instead for more time)
+headers.set("Sec-CH-UA-Mobile", "?0");
+headers.set("Sec-CH-UA-Platform", '"Windows"');
+headers.delete("cf-connecting-ip");
+headers.delete("cf-ray");
+headers.delete("x-forwarded-proto");
+headers.delete("x-real-ip");
   const proxyRequest = new Request(targetURL, {
     method: request.method,
     headers,
