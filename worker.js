@@ -100,22 +100,32 @@ async function proxyCloudMoon(request) {
       return new Response("Invalid proxy URL", { status: 400 });
     }
   } else {
-    targetURL = "https://web.cloudmoonapp.com" + url.pathname + url.search;
+    // Strip the "/web.cloudmoonapp.com" prefix so CloudMoon sees the request at the
+    // correct path (e.g. "/" instead of "/web.cloudmoonapp.com/"). Without this, every
+    // proxied navigation hits CloudMoon at "/web.cloudmoonapp.com/..." which is a
+    // non-existent route and returns a 404 SPA fallback — breaking SvelteKit routing,
+    // API calls, and ad rendering that depends on knowing the real URL.
+    const cmPathPrefix = "/web.cloudmoonapp.com";
+    let forwardPath = url.pathname;
+    if (forwardPath === cmPathPrefix || forwardPath.startsWith(cmPathPrefix + "/")) {
+      forwardPath = forwardPath.substring(cmPathPrefix.length) || "/";
+    }
+    targetURL = "https://web.cloudmoonapp.com" + forwardPath + url.search;
   }
   console.log("Proxying:", targetURL);
   const headers = new Headers(request.headers);
-
-  headers.set(
-    "User-Agent",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-  );
-  // PATCH: Mobile time limits (If conecting from mobile, use pc app instead for more time)
-  headers.set("Sec-CH-UA-Mobile", "?0");
-  headers.set("Sec-CH-UA-Platform", '"Windows"');
+  // Pass through the real client User-Agent and Sec-CH-UA-* headers so CloudMoon and
+  // downstream ad networks see a consistent client identity. The previous UA spoofing
+  // (Windows desktop UA from a mobile browser) caused ad-network fraud filters to flag
+  // the traffic as suspicious and reject bidder sync/auction calls.
   headers.delete("cf-connecting-ip");
   headers.delete("cf-ray");
   headers.delete("x-forwarded-proto");
   headers.delete("x-real-ip");
+  // Tell CloudMoon the original host so its first-party asset URLs resolve correctly.
+  if (!headers.has("X-Forwarded-Host")) {
+    headers.set("X-Forwarded-Host", url.host);
+  }
   const proxyRequest = new Request(targetURL, {
     method: request.method,
     headers,
