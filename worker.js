@@ -417,6 +417,119 @@ function fixButtons() {
     }
   });
 
+  // ---- Consent API stubs ----
+  // Ad networks (Audigent, Amazon, Prebid bidders) poll for __gpp / __tcfapi / __uspapi
+  // and bail out when none is present. CloudMoon doesn't ship a CMP, so we provide
+  // minimal stubs that signal "no GDPR/GPP framework applies, all purposes consented"
+  // — the default behavior ad networks expect when no CMP is detected. This is the same
+  // signal a US visitor to the un-proxied CloudMoon site would send.
+  (function setupConsentStubs() {
+    if (window.__gpp) return;
+
+    var GPP_DATA = {
+      gppVersion: '1.1',
+      cmpStatus: 'loaded',
+      cmpDisplayStatus: 'hidden',
+      signalStatus: 'not ready',
+      supportedAPIs: ['5:tcfcav1', '6:uspv1'],
+      cmpId: 0,
+      sectionList: []
+    };
+
+    function gppHandler(command, callback, param) {
+      try {
+        switch (command) {
+          case 'addEventListener':
+          case 'ping':
+            callback({ ping: true, ...GPP_DATA }, true);
+            break;
+          case 'getGPPData':
+            callback({ gppString: '', sectionId: -1, gppVersion: 1, applicableSections: [-1] }, true);
+            break;
+          case 'getSection':
+          case 'getField':
+            callback(null, true);
+            break;
+          case 'removeEventListener':
+            callback(true);
+            break;
+          default:
+            callback(null, false);
+        }
+      } catch (e) {
+        try { callback(null, false); } catch (_) {}
+      }
+    }
+
+    window.__gpp = function() {
+      var args = Array.prototype.slice.call(arguments);
+      var command = args[0];
+      var callback = args[1];
+      if (typeof callback === 'function') {
+        gppHandler(command, callback, args[2]);
+      }
+    };
+    window.__gpp.events = [];
+
+    // TCF v2 stub — signal "no GDPR applies" so EU-targeting logic doesn't block bids.
+    if (!window.__tcfapi) {
+      window.__tcfapi = function(command, version, callback) {
+        if (typeof callback !== 'function') return;
+        switch (command) {
+          case 'ping':
+            callback({
+              gdprApplies: false,
+              cmpLoaded: true,
+              cmpStatus: 'loaded',
+              displayStatus: 'hidden',
+              apiVersion: '2.0',
+              cmpVersion: 1,
+              cmpId: 0,
+              gvlVersion: 1,
+              tcfPolicyVersion: '2.0'
+            }, true);
+            break;
+          case 'getTCData':
+          case 'addEventListener':
+            callback({
+              tcString: '',
+              tcfPolicyVersion: '2.0',
+              gdprApplies: false,
+              cmpStatus: 'loaded',
+              eventStatus: 'tcloaded',
+              cmpId: 0,
+              cmpVersion: 1,
+              listenerId: 1,
+              purpose: { consents: {}, legitimateInterests: {} },
+              specialFeatureOptins: {},
+              publisher: { consents: {}, legitimateInterests: {}, customPurpose: { consents: {}, legitimateInterests: {} } },
+              eventStatus: 'tcloaded'
+            }, true);
+            break;
+          case 'removeEventListener':
+            callback(true);
+            break;
+          default:
+            callback(null, false);
+        }
+      };
+    }
+
+    // US Privacy (CCPA) stub — signal "no CCPA sale opt-out".
+    if (!window.__uspapi) {
+      window.__uspapi = function(command, version, callback) {
+        if (typeof callback !== 'function') return;
+        if (command === 'getUSPData' && version === 1) {
+          callback({ version: 1, uspString: '1---' }, true);
+        } else if (command === 'ping') {
+          callback({ uspapiVersion: 1, uspStatus: 'loaded' }, true);
+        } else {
+          callback(null, false);
+        }
+      };
+    }
+  })();
+
   console.log("[Worker] Initialized");
 })();
 <\/script>`;
@@ -973,4 +1086,6 @@ __name(getServiceWorker, "getServiceWorker");
 export {
   worker_default as default
 };
+//# sourceMappingURL=worker.js.map
+
 //# sourceMappingURL=worker.js.map
