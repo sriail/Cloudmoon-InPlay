@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CloudMoon Play</title>
+    <style>
+        /* Reset defaults and hide scrollbars for clean fullscreen presentation */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        /* Container forcing the game frame to occupy the total viewport area */
+        .game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        /* Styling the frame to look like a native application */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- Embedded official CloudMoon web interface -->
+        <iframe 
+            src="https://web.cloudmoonapp.com/" 
+            allow="autoplay; gamepad; fullscreen; keyboard;"
+            sandbox="allow-apps allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+        >
+        </iframe>
+    </div>
+
+</body>
+</html>
